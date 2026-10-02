@@ -1,0 +1,374 @@
+{
+  "protocol": "random",
+  "seed": 42,
+  "audit": {
+    "raw_earthquakes": 6485,
+    "raw_eruptions": 49,
+    "buffer_hours": 24,
+    "sha256": {
+      "PuuOo.csv": "887d78e213efb9f47f7dd0466ce5a7524f69140721c4904e60f524288e0d99ca",
+      "puuoo_earthquakes.csv": "b51c1eb4079f5c77e58ab5fa4b53b88318f0fb1f27fc944b511637aee1b40d07"
+    },
+    "invalid_rows_removed": 0,
+    "duplicates_removed": 0,
+    "east_rift_earthquakes": 3764,
+    "coverage_cutoff_exclusive": "1986-07-20 00:00:00",
+    "warmup_end": "1983-01-31 00:18:51",
+    "coverage_or_warmup_rows_removed": 804,
+    "model_rows": 2960,
+    "positive_rows": 304,
+    "positive_fraction": 0.10270270270270271,
+    "start": "1983-01-31 02:50:01",
+    "end": "1986-07-19 22:21:52",
+    "splits": {
+      "train": {
+        "rows": 2072,
+        "positive_rows": 213,
+        "start": "1983-01-31 02:50:01",
+        "end": "1986-07-19 22:21:52"
+      },
+      "dev": {
+        "rows": 592,
+        "positive_rows": 61,
+        "start": "1983-01-31 08:58:23",
+        "end": "1986-07-18 10:59:30"
+      },
+      "test": {
+        "rows": 296,
+        "positive_rows": 30,
+        "start": "1983-02-02 00:38:36",
+        "end": "1986-07-07 01:53:02"
+      }
+    },
+    "excluded_split_rows": 0
+  },
+  "versions": {
+    "python": "3.12.6",
+    "sklearn": "1.9.1",
+    "numpy": "2.5.3",
+    "pandas": "3.0.6"
+  },
+  "selection": {
+    "classification": {
+      "family": "forest",
+      "config": "depth=15",
+      "development_metrics": {
+        "auroc": 0.6569417430767805,
+        "average_precision": 0.26776172826455685,
+        "kappa": 0.17650373292012966,
+        "accuracy": 0.8665540540540541,
+        "precision": 0.29545454545454547,
+        "recall": 0.21311475409836064,
+        "f1": 0.24761904761904763,
+        "confusion_matrix": [
+          [
+            500,
+            31
+          ],
+          [
+            48,
+            13
+          ]
+        ]
+      }
+    },
+    "regression": {
+      "family": "forest",
+      "config": "depth=None",
+      "development_metrics": {
+        "rmse_days": 10.929385790493955,
+        "mae_days": 8.281690322055885,
+        "r2": 0.14835115977157332
+      }
+    }
+  },
+  "metrics": {
+    "classification": {
+      "baseline": {
+        "config": "prior",
+        "development": {
+          "auroc": 0.5,
+          "average_precision": 0.10304054054054054,
+          "kappa": 0.0,
+          "accuracy": 0.8969594594594594,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "confusion_matrix": [
+            [
+              531,
+              0
+            ],
+            [
+              61,
+              0
+            ]
+          ]
+        },
+        "test": {
+          "auroc": 0.5,
+          "average_precision": 0.10135135135135136,
+          "kappa": 0.0,
+          "accuracy": 0.8986486486486487,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "confusion_matrix": [
+            [
+              266,
+              0
+            ],
+            [
+              30,
+              0
+            ]
+          ]
+        }
+      },
+      "logistic": {
+        "config": "C=10",
+        "development": {
+          "auroc": 0.5263499120125961,
+          "average_precision": 0.11171601229862539,
+          "kappa": 0.0062643685151621,
+          "accuracy": 0.5337837837837838,
+          "precision": 0.10622710622710622,
+          "recall": 0.47540983606557374,
+          "f1": 0.17365269461077845,
+          "confusion_matrix": [
+            [
+              287,
+              244
+            ],
+            [
+              32,
+              29
+            ]
+          ]
+        },
+        "test": {
+          "auroc": 0.5350877192982455,
+          "average_precision": 0.1125833494965945,
+          "kappa": 0.02855044524006245,
+          "accuracy": 0.5168918918918919,
+          "precision": 0.11564625850340136,
+          "recall": 0.5666666666666667,
+          "f1": 0.192090395480226,
+          "confusion_matrix": [
+            [
+              136,
+              130
+            ],
+            [
+              13,
+              17
+            ]
+          ]
+        }
+      },
+      "forest": {
+        "config": "depth=15",
+        "development": {
+          "auroc": 0.6569417430767805,
+          "average_precision": 0.26776172826455685,
+          "kappa": 0.17650373292012966,
+          "accuracy": 0.8665540540540541,
+          "precision": 0.29545454545454547,
+          "recall": 0.21311475409836064,
+          "f1": 0.24761904761904763,
+          "confusion_matrix": [
+            [
+              500,
+              31
+            ],
+            [
+              48,
+              13
+            ]
+          ]
+        },
+        "test": {
+          "auroc": 0.681328320802005,
+          "average_precision": 0.28376643616533515,
+          "kappa": 0.16565481352992195,
+          "accuracy": 0.8682432432432432,
+          "precision": 0.2857142857142857,
+          "recall": 0.2,
+          "f1": 0.23529411764705882,
+          "confusion_matrix": [
+            [
+              251,
+              15
+            ],
+            [
+              24,
+              6
+            ]
+          ]
+        }
+      },
+      "kmeans": {
+        "config": "k=4",
+        "development": {
+          "auroc": 0.5094933777901269,
+          "average_precision": 0.13938196961451027,
+          "kappa": -0.005774498668524863,
+          "accuracy": 0.39864864864864863,
+          "precision": 0.1002710027100271,
+          "recall": 0.6065573770491803,
+          "f1": 0.17209302325581396,
+          "confusion_matrix": [
+            [
+              199,
+              332
+            ],
+            [
+              24,
+              37
+            ]
+          ]
+        },
+        "test": {
+          "auroc": 0.5096491228070175,
+          "average_precision": 0.10567906011586485,
+          "kappa": 0.003976751300091785,
+          "accuracy": 0.40540540540540543,
+          "precision": 0.10326086956521739,
+          "recall": 0.6333333333333333,
+          "f1": 0.17757009345794392,
+          "confusion_matrix": [
+            [
+              101,
+              165
+            ],
+            [
+              11,
+              19
+            ]
+          ]
+        }
+      },
+      "mlp": {
+        "config": "alpha=0.001",
+        "development": {
+          "auroc": 0.5997344941496094,
+          "average_precision": 0.1674898508489973,
+          "kappa": 0.05000958037938308,
+          "accuracy": 0.8868243243243243,
+          "precision": 0.25,
+          "recall": 0.04918032786885246,
+          "f1": 0.0821917808219178,
+          "confusion_matrix": [
+            [
+              522,
+              9
+            ],
+            [
+              58,
+              3
+            ]
+          ]
+        },
+        "test": {
+          "auroc": 0.5570175438596491,
+          "average_precision": 0.13254126762247953,
+          "kappa": 0.03583061889250805,
+          "accuracy": 0.8918918918918919,
+          "precision": 0.25,
+          "recall": 0.03333333333333333,
+          "f1": 0.058823529411764705,
+          "confusion_matrix": [
+            [
+              263,
+              3
+            ],
+            [
+              29,
+              1
+            ]
+          ]
+        }
+      }
+    },
+    "regression": {
+      "baseline": {
+        "config": "mean",
+        "development": {
+          "rmse_days": 11.86609268581814,
+          "mae_days": 8.95409332840472,
+          "r2": -0.003886281753074039
+        },
+        "test": {
+          "rmse_days": 12.014879865557413,
+          "mae_days": 9.279202072034632,
+          "r2": -0.0004277740289786447,
+          "repose_only": {
+            "rmse_days": 11.832875247746788,
+            "mae_days": 8.800700419219568,
+            "r2": -0.011259037728181598
+          }
+        }
+      },
+      "forest": {
+        "config": "depth=None",
+        "development": {
+          "rmse_days": 10.929385790493955,
+          "mae_days": 8.281690322055885,
+          "r2": 0.14835115977157332
+        },
+        "test": {
+          "rmse_days": 11.018444828132608,
+          "mae_days": 8.525583539628176,
+          "r2": 0.15862911891722764,
+          "repose_only": {
+            "rmse_days": 10.79238006862013,
+            "mae_days": 8.102747420642807,
+            "r2": 0.15876698872959016
+          }
+        }
+      },
+      "kmeans": {
+        "config": "k=10",
+        "development": {
+          "rmse_days": 16.406939733666817,
+          "mae_days": 11.967324329444345,
+          "r2": -0.9192175781580842
+        },
+        "test": {
+          "rmse_days": 15.665609724027254,
+          "mae_days": 11.7535715017719,
+          "r2": -0.700753918761819,
+          "repose_only": {
+            "rmse_days": 15.685313867238026,
+            "mae_days": 11.596025751904559,
+            "r2": -0.7769216188993715
+          }
+        }
+      },
+      "mlp": {
+        "config": "alpha=0.1",
+        "development": {
+          "rmse_days": 11.91000377768237,
+          "mae_days": 8.878127328220055,
+          "r2": -0.011329895636279286
+        },
+        "test": {
+          "rmse_days": 11.763291086180882,
+          "mae_days": 9.057614498649931,
+          "r2": 0.04103101263480924,
+          "repose_only": {
+            "rmse_days": 11.490413835748752,
+            "mae_days": 8.568137333544207,
+            "r2": 0.04642867003773754
+          }
+        }
+      }
+    }
+  },
+  "warnings": [
+    "classification/mlp/alpha=0.001: Stochastic Optimizer: Maximum iterations (400) reached and the optimization hasn't converged yet.",
+    "classification/mlp/alpha=0.1: Stochastic Optimizer: Maximum iterations (400) reached and the optimization hasn't converged yet.",
+    "regression/mlp/alpha=0.001: Stochastic Optimizer: Maximum iterations (400) reached and the optimization hasn't converged yet.",
+    "regression/mlp/alpha=0.1: Stochastic Optimizer: Maximum iterations (400) reached and the optimization hasn't converged yet."
+  ]
+}

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+tmp/pdfs/*.png
+.build/
+tmp/
+node_modules/
+.ipynb_checkpoints/
+.pytest_cache/
+.codex-build/
+.chart-data-*/

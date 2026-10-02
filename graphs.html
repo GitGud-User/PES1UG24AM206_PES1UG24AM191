@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PEEVED · Project graphs</title>
+  <style>
+    :root { color-scheme: light; font-family: Calibri, Arial, sans-serif; color: #18332c; background: #f3f6f3; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header { background: #194b3b; color: white; padding: 42px max(24px, calc((100vw - 1280px) / 2)); }
+    .eyebrow { text-transform: uppercase; letter-spacing: .15em; color: #cae4d6; font-size: 13px; }
+    h1 { font-size: clamp(28px, 4vw, 42px); line-height: 1.15; margin: 12px 0; }
+    header p { line-height: 1.6; max-width: 750px; color: #e1eee7; }
+    main { max-width: 1328px; margin: auto; padding: 26px 24px 40px; }
+    nav { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+    nav a { padding: 11px 16px; border: 1px solid #b9ccc0; border-radius: 8px; color: #194b3b; background: white; font-weight: bold; text-decoration: none; }
+    nav a:hover { background: #e7f0e9; }
+    a:focus-visible { outline: 3px solid #df932f; outline-offset: 3px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+    article { background: white; border: 1px solid #d9e4dc; border-radius: 14px; overflow: hidden; }
+    .description { padding: 22px 24px 8px; }
+    h2 { margin: 0 0 8px; font-size: 23px; color: #152c25; }
+    .description p { margin: 0; color: #52665d; line-height: 1.6; }
+    .plot { display: block; padding: 12px; }
+    .plot img { display: block; width: 100%; height: auto; }
+    .hint { font-size: 14px; margin: 0 24px 20px; color: #617169; }
+    footer { padding-top: 24px; color: #52665d; line-height: 1.6; font-size: 14px; }
+    code { color: #294c3d; }
+    @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } header { padding: 28px 24px; } }
+    @media print { nav, .hint { display: none; } header { background: white; color: black; padding: 12px; } header p, .eyebrow { color: black; } article { break-inside: avoid; } .grid { display: block; } article { margin-bottom: 20px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">PEEVED · Machine learning mini-project</div>
+    <h1>Earthquake signals &amp; Kilauea eruptions</h1>
+    <p>Explore the saved chronological test results. These graphs compare eruption classification and estimates of time to eruption.</p>
+  </header>
+  <main>
+    <nav aria-label="Figure downloads">
+      <a href="output/figures/kilauea_panel_figures.pdf" target="_blank" rel="noopener">Open graph sheet (PDF)</a>
+      <a href="output/figures/kilauea_panel_figures.png" target="_blank" rel="noopener">Open combined image</a>
+    </nav>
+    <div class="grid">
+      <article>
+        <div class="description"><h2>Classification: ROC curves</h2><p>Compare true positive and false positive rates across thresholds. A curve closer to the upper-left corner indicates better discrimination.</p></div>
+        <a class="plot" href="output/figures/classification_roc.png" target="_blank" rel="noopener" aria-label="Open ROC curves at full size"><img src="output/figures/classification_roc.png" alt="ROC curves and AUC scores for the classification models on the chronological test set."></a>
+        <p class="hint">Click the graph to view it at full size.</p>
+      </article>
+      <article>
+        <div class="description"><h2>Classification: confusion matrix</h2><p>Compare the selected model's predicted eruption labels with the catalog labels. The diagonal cells count correct predictions.</p></div>
+        <a class="plot" href="output/figures/classification_confusion_matrix.png" target="_blank" rel="noopener" aria-label="Open confusion matrix at full size"><img src="output/figures/classification_confusion_matrix.png" alt="Confusion matrix for the selected classification model on the chronological test set."></a>
+        <p class="hint">Click the graph to view it at full size.</p>
+      </article>
+      <article>
+        <div class="description"><h2>Regression: prediction error</h2><p>Compare root mean squared error in days. Smaller values indicate more accurate estimates of time to eruption.</p></div>
+        <a class="plot" href="output/figures/regression_rmse.png" target="_blank" rel="noopener" aria-label="Open regression error chart at full size"><img src="output/figures/regression_rmse.png" alt="Regression model comparison using root mean squared error in days."></a>
+        <p class="hint">Click the graph to view it at full size.</p>
+      </article>
+      <article>
+        <div class="description"><h2>Regression: observed vs. predicted</h2><p>Compare estimated and observed time to eruption. Points near the equality line indicate estimates close to the observed values.</p></div>
+        <a class="plot" href="output/figures/regression_observed_predicted.png" target="_blank" rel="noopener" aria-label="Open observed versus predicted chart at full size"><img src="output/figures/regression_observed_predicted.png" alt="Observed versus predicted time to eruption on the chronological test set."></a>
+        <p class="hint">Click the graph to view it at full size.</p>
+      </article>
+    </div>
+    <footer>
+      <p>This page displays saved figures from <code>scripts/build_figures.py</code>. After regenerating the figures, refresh the page to see the updated results.</p>
+      <p>Historical educational model. Eruption scores are not calibrated hazard probabilities.</p>
+    </footer>
+  </main>
+</body>
+</html>
