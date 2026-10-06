@@ -35,6 +35,7 @@ def create():
     save_one("regression_observed_predicted.png", (7.2, 6.0), plots.draw_observed_predicted, pred, metrics)
     save_one("protocol_comparison.png", (7.6, 4.8), plots.draw_protocols, metrics, random_metrics)
     save_one("timeline_splits.png", (11.5, 4.4), plots.draw_timeline, prepared)
+    save_one("study_area_map.png", (8.0, 5.2), plots.draw_map, prepared)
 
     pdf_path = OUT / "kilauea_panel_figures.pdf"
     with PdfPages(pdf_path) as pdf:

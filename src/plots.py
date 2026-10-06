@@ -218,3 +218,25 @@ def draw_timeline(ax, prepared):
     ax.set_title("East Rift Zone earthquakes, 1983–1986, and the time-ordered split")
     ax.legend(loc="center left", bbox_to_anchor=(0, .62), frameon=False)
     axis_style(ax, grid_axis="y")
+
+
+PUU_OO = (-155.1050, 19.3864)  # longitude, latitude used in the original RunMLTests.ipynb
+
+
+def draw_map(ax, prepared):
+    """Modeled East Rift Zone epicentres coloured by depth, with Pu'u 'O'o marked."""
+    d = prepared
+    cmap = matplotlib.colors.LinearSegmentedColormap.from_list("depth", ["#FDBA74", "#1D4ED8", "#0F172A"])
+    sc = ax.scatter(d.longitude, d.latitude, c=d.depth, cmap=cmap, s=7, alpha=.75, linewidth=0, vmin=0, vmax=15)
+    ax.scatter(*PUU_OO, marker="^", s=140, color=ACCENT, edgecolor="white", linewidth=1.2, zorder=5)
+    ax.annotate("Pu'u 'Ō'ō", PUU_OO, xytext=(10, 10), textcoords="offset points", color=INK,
+                fontsize=10, fontweight="bold")
+    ax.set(xlabel="Longitude (°)", ylabel="Latitude (°)")
+    ax.set_aspect(1 / np.cos(np.deg2rad(19.35)))
+    ax.set_title(f"{len(d):,} modeled East Rift Zone earthquakes, 1983–1986")
+    axis_style(ax)
+    cb = plt.colorbar(sc, ax=ax, shrink=.7, pad=.02)
+    cb.set_label("Depth (km)", color=TEXT)
+    cb.outline.set_visible(False)
+    cb.ax.invert_yaxis()
+    cb.ax.tick_params(colors=MUTED, length=0)
