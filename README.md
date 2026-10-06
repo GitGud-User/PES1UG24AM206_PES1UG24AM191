@@ -95,7 +95,7 @@ For comparison, the random split (stratified 70/20/10, as in the paper) selects 
 - `output/figures/`: charts built by `scripts/build_figures.py`
 - `output/pdf/`: two-page assignment write-up
 - `output/slides/`: review presentation
-- `graphs.html`: browser page for the saved graphs
+- `graphs.html`: results page built by `scripts/build_site.py` (open it in a browser from the project folder)
 
 `reference/PEEVED` is a Git submodule pointing to the original repository; use `git clone --recurse-submodules` to fetch it. Nothing in the pipeline needs it. Local environments, temporary previews, and build files are excluded from Git.
 
