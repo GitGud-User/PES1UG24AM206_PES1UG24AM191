@@ -27,7 +27,7 @@ Check the pipeline first (about one second):
 python -m unittest discover -s tests -v
 ```
 
-To view the saved graphs without running Python, open `graphs.html` in a browser. Keep it in the project folder so its links to `output/figures/` work. Click a graph for a larger view or open the combined PDF from the page.
+To view the saved graphs without running Python, open `graphs.html` in a browser. Keep it in the project folder so its links to `output/figures/` work. It shows the headline metrics, all charts with their tables, the random-split comparison and the key code. Click a graph to open it at full size; the combined chart sheet is `output/figures/kilauea_panel_figures.pdf`.
 
 Run both the chronological and random-split comparisons (about 30 seconds). This overwrites the saved files in `results/` and `models/`; with the pinned versions in `requirements.txt` it reproduces them. To rerun without touching the saved files, write to a separate folder, for example `python -m src.experiment --protocol chronological --output-dir tmp/chrono`.
 
