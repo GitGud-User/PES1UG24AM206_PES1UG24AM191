@@ -15,22 +15,40 @@ from reportlab.platypus import Paragraph
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "output" / "pdf" / "PEEVED_Mini_Project_Summary.pdf"
 RESULT = ROOT / "results" / "chronological" / "metrics.json"
-NAVY = colors.HexColor("#174A35")
-HEADER_ORANGE = colors.HexColor("#C45A1C")
-TEAL = colors.HexColor("#087E8B")
-GOLD = colors.HexColor("#E9A23B")
-INK = colors.HexColor("#253746")
-MUTED = colors.HexColor("#607486")
-PALE = colors.HexColor("#EAF1F5")
-LIGHT_GREEN = colors.HexColor("#E8F2E8")
+NAVY = colors.HexColor("#1D4ED8")
+HEADER_ORANGE = colors.HexColor("#0F172A")
+TEAL = colors.HexColor("#1D4ED8")
+GOLD = colors.HexColor("#EA580C")
+INK = colors.HexColor("#334155")
+MUTED = colors.HexColor("#64748B")
+PALE = colors.HexColor("#E2E8F0")
+LIGHT_GREEN = colors.HexColor("#F1F5F9")
 
-pdfmetrics.registerFont(TTFont("Calibri", r"C:\Windows\Fonts\calibri.ttf"))
-pdfmetrics.registerFont(TTFont("Calibri-Bold", r"C:\Windows\Fonts\calibrib.ttf"))
+TEAM = "Prithvish Adhikari (PES1UG24AM206)  ·  Piyush Shiv (PES1UG24AM191)"
+FONT_DIR = ROOT / "assets" / "fonts"
+LABELS = {"baseline": "the prior/mean baseline", "logistic": "logistic regression",
+          "forest": "a random forest", "kmeans": "class-conditional K-means",
+          "mlp": "a small neural network (MLP)"}
+REG_LABELS = {**LABELS, "baseline": "the mean baseline", "kmeans": "joint K-means"}
+
+
+def register_fonts():
+    """Bundled Open Sans/Montserrat (OFL); fall back to built-in Helvetica anywhere."""
+    try:
+        pdfmetrics.registerFont(TTFont("Body", str(FONT_DIR / "OpenSans-Regular.ttf")))
+        pdfmetrics.registerFont(TTFont("Body-Bold", str(FONT_DIR / "OpenSans-SemiBold.ttf")))
+        pdfmetrics.registerFont(TTFont("Head", str(FONT_DIR / "Montserrat-Bold.ttf")))
+        return "Body", "Body-Bold", "Head"
+    except Exception:
+        return "Helvetica", "Helvetica-Bold", "Helvetica-Bold"
+
+
+BODY, BOLD, HEAD = register_fonts()
 
 styles = {
-    "body": ParagraphStyle("body", fontName="Calibri", fontSize=9.4, leading=13.2,
+    "body": ParagraphStyle("body", fontName=BODY, fontSize=9.4, leading=13.2,
                            textColor=INK, alignment=TA_LEFT, spaceAfter=5),
-    "small": ParagraphStyle("small", fontName="Calibri", fontSize=8, leading=10.5,
+    "small": ParagraphStyle("small", fontName=BODY, fontSize=8, leading=10.5,
                             textColor=MUTED),
 }
 
@@ -44,9 +62,9 @@ def paragraph(c, text, x, top, width, style="body"):
 
 def section(c, title, x, y):
     c.setFillColor(colors.black)
-    c.setFont("Calibri-Bold", 12)
+    c.setFont(BOLD, 12)
     c.drawString(x, y, title)
-    return y - 8
+    return y - 6
 
 
 def footer(c, n):
@@ -56,11 +74,24 @@ def footer(c, n):
 
 def metric(c, x, y, value, label, width=1.55 * inch):
     c.setFillColor(NAVY)
-    c.setFont("Calibri-Bold", 18)
+    c.setFont(BOLD, 18)
     c.drawString(x, y, value)
     c.setFillColor(MUTED)
-    c.setFont("Calibri", 8)
+    c.setFont(BODY, 8)
     c.drawString(x, y - 13, label)
+
+
+def image(c, path, x, top, width, caption):
+    """Draw an image at full width with preserved aspect ratio; return the new y."""
+    from reportlab.lib.utils import ImageReader
+    img = ImageReader(str(path))
+    w, h = img.getSize()
+    height = width * h / w
+    c.drawImage(img, x, top - height, width, height, mask="auto")
+    y = top - height - 4
+    if caption:
+        y = paragraph(c, caption, x, y, width, "small")
+    return y
 
 
 def build():
@@ -68,25 +99,31 @@ def build():
         raise SystemExit("Run python -m src.experiment --protocol chronological first")
     report = json.loads(RESULT.read_text(encoding="utf-8"))
     audit = report["audit"]
-    cls = report["metrics"]["classification"]["kmeans"]["test"]
-    reg = report["metrics"]["regression"]["baseline"]["test"]
+    sel_c = report["selection"]["classification"]
+    sel_r = report["selection"]["regression"]
+    cls = report["metrics"]["classification"][sel_c["family"]]["test"]
+    reg = report["metrics"]["regression"][sel_r["family"]]["test"]
+    reg_all = report["metrics"]["regression"]
+    all_negative = all(v["test"]["r2"] < 0 for v in reg_all.values())
     random_report = json.loads((ROOT / "results/random/metrics.json").read_text(encoding="utf-8"))
-    random_cls = random_report["metrics"]["classification"]["forest"]["test"]
-    random_reg = random_report["metrics"]["regression"]["forest"]["test"]
+    rsel_c = random_report["selection"]["classification"]["family"]
+    rsel_r = random_report["selection"]["regression"]["family"]
+    random_cls = random_report["metrics"]["classification"][rsel_c]["test"]
+    random_reg = random_report["metrics"]["regression"][rsel_r]["test"]
     OUT.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(OUT), pagesize=letter)
     c.setTitle("PEEVED mini-project summary")
-    c.setAuthor("Machine Learning Mini-Project Team")
+    c.setAuthor("Prithvish Adhikari, Piyush Shiv")
 
     # Page 1: question, data and method.
     c.setFillColor(HEADER_ORANGE)
     c.rect(0,  letter[1] - 1.45 * inch, letter[0], 1.45 * inch, fill=1, stroke=0)
     c.setFillColor(colors.white)
-    c.setFont("Calibri-Bold", 21)
+    c.setFont(HEAD, 20)
     c.drawString(0.65 * inch, letter[1] - 0.70 * inch, "Earthquake signals and Kilauea eruptions")
-    c.setFont("Calibri", 11)
-    c.drawString(0.66 * inch, letter[1] - 1.02 * inch,
-                 "A chronological machine-learning study of Pu'u O'o activity")
+    c.setFont(BODY, 11)
+    c.drawString(0.66 * inch, letter[1] - 0.98 * inch, "UE24CS352A Machine Learning  |  Mini-project write-up")
+    c.drawString(0.66 * inch, letter[1] - 1.20 * inch, TEAM)
     c.setFillColor(GOLD)
     c.rect(0, letter[1] - 1.49 * inch, letter[0], 0.04 * inch, fill=1, stroke=0)
 
@@ -96,8 +133,8 @@ def build():
     y = paragraph(c,
         "Can the location, depth, magnitude, and recent rate of earthquakes in Kilauea's East Rift Zone "
         "help identify an ongoing Pu'u O'o eruptive episode or estimate the time to the next eruption? "
-        "We reproduce these two tasks from the Stanford CS229 study by Mullet, Singh, and Wong, then "
-        "evaluate later earthquakes with a time-ordered holdout.", x, y, width) - 13
+        "We adapt these two tasks from the Stanford CS229 study by Mullet, Singh, and Wong (PEEVED) "
+        "and add a time-ordered holdout that scores later earthquakes only.", x, y, width) - 13
 
     y = section(c, "Dataset and labels", x, y)
     y = paragraph(c,
@@ -108,7 +145,11 @@ def build():
         f"{audit['model_rows']:,} examples remain ({audit['positive_rows']} eruptive, "
         f"{audit['positive_fraction']:.1%}). Features are longitude, latitude, depth, magnitude, "
         "and counts in the preceding 1, 7, and 30 days. Erupting labels use each catalog duration "
-        "plus a 24-hour uncertainty buffer; time-to-eruption is measured in days.", x, y, width) - 13
+        "plus a 24-hour uncertainty buffer; time-to-eruption is measured in days. On the modeled rows these "
+        "labels match the original PEEVED rule exactly. Applied to all 3,764 East Rift earthquakes that rule "
+        "marks 22.4% as erupting (the paper reports about 20%); the lower 10.3% here comes from excluding "
+        "282 post-July-1986 events labelled only through episode 48's corrupted duration and the 522 "
+        "warm-up earthquakes of January 1983.", x, y, width) - 13
 
     y = section(c, "Approach and implementation", x, y)
     y = paragraph(c,
@@ -124,22 +165,25 @@ def build():
     c.setFillColor(LIGHT_GREEN)
     c.roundRect(x, y - 42, width, 42, 5, fill=1, stroke=0)
     c.setFillColor(colors.black)
-    c.setFont("Calibri-Bold", 9)
+    c.setFont(BOLD, 9)
     c.drawString(x + 10, y - 16, "Data quality decision")
     paragraph(c,
         "Episode 48 lists an implausible duration of 173,566,800 hours. We retain its onset as an "
         "exclusive cutoff and do not use the corrupted duration. The source also lists eruptions "
         "35.5 and 35 out of order; preprocessing sorts onset-duration pairs together.",
         x + 10, y - 21, width - 20, "small")
+    image(c, ROOT / "output/figures/timeline_splits.png", x, y - 58, width,
+          "Figure 1. Weekly East Rift Zone earthquakes with eruptive-episode labels (orange ticks) and the "
+          "time-ordered train / development / test windows.")
     footer(c, 1)
     c.showPage()
 
     # Page 2: results, interpretation, conclusion and sources.
     c.setFillColor(colors.black)
-    c.setFont("Calibri-Bold", 20)
+    c.setFont(BOLD, 20)
     c.drawString(0.65 * inch, letter[1] - 0.67 * inch, "Results and conclusion")
     c.setFillColor(MUTED)
-    c.setFont("Calibri", 10)
+    c.setFont(BODY, 10)
     c.drawString(0.66 * inch, letter[1] - 0.94 * inch,
                  "The chronological test period is the primary measure of future-period performance.")
 
@@ -153,7 +197,7 @@ def build():
     y = top - 48
     y = section(c, "Held-out classification", x, y)
     y = paragraph(c,
-        f"Development selected class-conditional K-means (k=4). On the later test window, AUROC "
+        f"Development selected {LABELS[sel_c['family']]} ({sel_c['config']}). On the later test window, AUROC "
         f"was {cls['auroc']:.3f}, average precision {cls['average_precision']:.3f}, and kappa "
         f"{cls['kappa']:.3f}. It identified {cls['confusion_matrix'][1][1]} of "
         f"{sum(cls['confusion_matrix'][1])} eruptive examples (recall {cls['recall']:.3f}) "
@@ -163,18 +207,21 @@ def build():
 
     y = section(c, "Held-out time-to-eruption regression", x, y)
     y = paragraph(c,
-        f"Development selected the mean baseline. It achieved RMSE {reg['rmse_days']:.2f} days, "
-        f"MAE {reg['mae_days']:.2f} days, and R-squared {reg['r2']:.3f}. All tested regression "
-        "families had negative test R-squared, so none explained more variation than a test-period "
-        "mean reference. These data do not support useful time-to-eruption forecasts.", x, y, width) - 11
+        f"Development selected {REG_LABELS[sel_r['family']]}{'' if sel_r['family'] == 'baseline' else ' (' + sel_r['config'] + ')'}. It achieved RMSE "
+        f"{reg['rmse_days']:.2f} days, MAE {reg['mae_days']:.2f} days, and R-squared {reg['r2']:.3f}. "
+        + ("All tested regression families had negative test R-squared, so none explained more variation "
+           "than a test-period mean reference. " if all_negative else "")
+        + "These data do not support useful time-to-eruption forecasts.", x, y, width) - 11
 
     y = section(c, "What the random split changes", x, y)
     y = paragraph(c,
-        f"A random test split gave the forest classifier AUROC {random_cls['auroc']:.3f} and kappa "
-        f"{random_cls['kappa']:.3f}; its forest regression had RMSE {random_reg['rmse_days']:.2f} "
-        f"days and R-squared {random_reg['r2']:.3f}. Neighboring earthquakes can appear in both "
-        "training and test sets under this split. The gap between protocols shows why the "
-        "chronological result is the more relevant estimate for later-period use.", x, y, width) - 11
+        f"With a stratified random 70/20/10 split (as in the paper), development selected "
+        f"{LABELS[rsel_c]} for classification (test AUROC {random_cls['auroc']:.3f}, kappa "
+        f"{random_cls['kappa']:.3f}) and {REG_LABELS[rsel_r]} for regression (RMSE "
+        f"{random_reg['rmse_days']:.2f} days, R-squared {random_reg['r2']:.3f}). The paper's random "
+        "forest reported test kappa 0.52 and AUROC 0.71 (its text quotes kappa 0.42) and R-squared 0.38 "
+        "on a standardized target. Neighboring earthquakes can appear in both training and test sets "
+        "under a random split, so it is not an estimate of performance on later periods.", x, y, width) - 11
 
     y = section(c, "Conclusion", x, y)
     y = paragraph(c,
@@ -190,9 +237,17 @@ def build():
     y -= 14
     y = paragraph(c,
         "Sources: Mullet, Singh, and Wong, “Predicting Eruptive Events at Volcanoes from Earthquake "
-        "Data,” Stanford CS229, Fall 2019 (supplied PDF); source code and catalogs: "
-        "github.com/bmullet/PEEVED. Results reproduced from the bundled CSV files with this project.",
+        "Data,” Stanford CS229, Fall 2019; original code and catalogs: github.com/bmullet/PEEVED "
+        "(earthquakes: ANSS catalog via WOVOdat; eruptions: Hawaii Center for Volcanology). Results are "
+        "this project's own runs on those bundled files (scikit-learn 1.7.2).",
         x, y, width, "small")
+    half = (width - 14) / 2
+    top = y - 12
+    y1 = image(c, ROOT / "output/figures/classification_roc.png", x, top, half, None)
+    y2 = image(c, ROOT / "output/figures/protocol_comparison.png", x + half + 14, top, half, None)
+    paragraph(c, "Figure 2. Left: chronological-test ROC curves (all models near the chance line). Right: "
+              "selected-model test metrics under the chronological and random splits.",
+              x, min(y1, y2) - 2, width, "small")
     footer(c, 2)
     c.save()
     print(OUT)

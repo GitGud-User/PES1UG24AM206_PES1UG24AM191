@@ -1,0 +1,4 @@
+-r requirements.txt
+jupyterlab==4.6.4
+ipykernel==7.4.0
+nbconvert==7.17.1
