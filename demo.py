@@ -4,7 +4,7 @@ import json
 import joblib
 import numpy as np
 import pandas as pd
-from src.data import ROOT, FEATURES
+from src.data import FEATURES, ROOT
 
 
 def predict_row(row_index=0):
@@ -16,16 +16,44 @@ def predict_row(row_index=0):
     row = test.iloc[[row_index]]
     print(f'\nHeld-out earthquake #{row_index} | {row.time.iloc[0]}')
     print(row[FEATURES].to_string(index=False))
-    for task in ('classification','regression'):
-        family = metadata['selection'][task]['family']
-        bundle = joblib.load(ROOT/'models'/f'{task}_{family}.joblib')
-        model = bundle['model']
-        if task == 'classification':
-            score = float(model.predict_proba(row[FEATURES])[0,1])
-            print(f'\n{family}: eruption score {score:.3f}; class {int(score >= .5)} (threshold 0.5)')
+    classification_runs = [('joint-F1', metadata['selection']['classification'],
+                            ROOT / 'models' / 'classification_selected_joint.joblib')]
+    for strategy, selection in metadata.get('selection_kmeans_controlled', {}).items():
+        classification_runs.append(
+            (f'kmeans-{strategy}', selection,
+             ROOT / 'models' / f'classification_kmeans_{strategy}.joblib')
+        )
+    for strategy, selection in metadata.get(
+        'selection_kmeans_improvement', {}
+    ).get('operating_points', {}).items():
+        classification_runs.append(
+            (f'kmeans-improved-{strategy}', selection,
+             ROOT / 'models' / f'classification_kmeans_improved_{strategy}.joblib')
+        )
+    for strategy, selection in metadata.get('selection_recall_first', {}).items():
+        if selection.get('status') == 'no_eligible_candidate':
+            print(f'\n{strategy}: no eligible candidate under the development FPR cap')
         else:
-            days = float(np.maximum(0, model.predict(row[FEATURES]))[0])
-            print(f'{family}: estimated time to eruption {days:.2f} days')
+            classification_runs.append(
+                (strategy, selection, ROOT / 'models' / f'classification_{strategy}.joblib')
+            )
+    for label, selection, path in classification_runs:
+        bundle = joblib.load(path)
+        model = bundle['model']
+        features = bundle['features']
+        score = float(model.predict_proba(row[features])[0, 1])
+        threshold = float(bundle.get('threshold', .5))
+        print(f'\n{label} ({selection["family"]}) features: {", ".join(features)}')
+        print(f'{label}: eruption score {score:.3f}; class {int(score >= threshold)} '
+              f'(threshold {threshold:.3f})')
+    selection = metadata['selection']['regression']
+    family = selection['family']
+    bundle = joblib.load(ROOT / 'models' / f'regression_{family}.joblib')
+    model = bundle['model']
+    features = bundle['features']
+    days = float(np.maximum(0, model.predict(row[features]))[0])
+    print(f'\n{family} features: {", ".join(features)}')
+    print(f'{family}: estimated time to eruption {days:.2f} days')
     print(f'Observed catalog labels: erupting={int(row.erupting.iloc[0])}; time to eruption={row.tte_days.iloc[0]:.2f} days')
     print('Historical educational model; scores are not calibrated hazard probabilities.')
 

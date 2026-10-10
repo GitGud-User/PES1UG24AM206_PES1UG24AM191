@@ -28,7 +28,8 @@ TEAM = "Prithvish Adhikari (PES1UG24AM206)  ·  Piyush Shiv (PES1UG24AM191)"
 FONT_DIR = ROOT / "assets" / "fonts"
 LABELS = {"baseline": "the prior/mean baseline", "logistic": "logistic regression",
           "forest": "a random forest", "kmeans": "class-conditional K-means",
-          "mlp": "a small neural network (MLP)"}
+          "mlp": "a small neural network (MLP)", "extra_trees": "Extra Trees",
+          "gradient_boosting": "gradient boosting"}
 REG_LABELS = {**LABELS, "baseline": "the mean baseline", "kmeans": "joint K-means"}
 
 
@@ -100,6 +101,11 @@ def build():
     report = json.loads(RESULT.read_text(encoding="utf-8"))
     audit = report["audit"]
     sel_c = report["selection"]["classification"]
+    base_c = report["selection_baseline"]["classification"]
+    recall10 = report["selection_recall_first"]["recall_first_fpr_0_10"]
+    recall20 = report["selection_recall_first"]["recall_first_fpr_0_20"]
+    km = report["selection_kmeans_controlled"]
+    km_improvement = report["selection_kmeans_improvement"]
     sel_r = report["selection"]["regression"]
     cls = report["metrics"]["classification"][sel_c["family"]]["test"]
     reg = report["metrics"]["regression"][sel_r["family"]]["test"]
@@ -153,9 +159,11 @@ def build():
 
     y = section(c, "Approach and implementation", x, y)
     y = paragraph(c,
-        "We compare a prior/mean baseline, logistic regression, random forests, class-conditional "
-        "K-means, and a small multilayer perceptron. Scaling is fit on training data. Hyperparameters "
-        "are selected on development data, then evaluated once on the held-out test period. The "
+        "We compare prior/mean baselines, logistic regression, random forests, Extra Trees, gradient "
+        "boosting, class-conditional K-means, and a small multilayer perceptron. The original seven "
+        "features remain available; classification also tests four motivated, strictly past-only "
+        "temporal features. Scaling is fit on training data. Hyperparameters, feature set, and "
+        "classification threshold are selected on development data, then evaluated once on the held-out test period. The "
         "chronological split uses 70% train, 20% development, and 10% test by time, a 30-day gap, "
         "and label-availability constraints. A random split is retained as a comparison. Code in "
         "src/data.py, src/models.py, and src/experiment.py writes the audit, metrics, predictions, "
@@ -197,12 +205,68 @@ def build():
     y = top - 48
     y = section(c, "Held-out classification", x, y)
     y = paragraph(c,
-        f"Development selected {LABELS[sel_c['family']]} ({sel_c['config']}). On the later test window, AUROC "
+        f"Development selected {LABELS[sel_c['family']]} with the {sel_c['feature_set'].replace('_', ' ')} "
+        f"feature set ({sel_c['config']}) and a development-F1 threshold of {sel_c['threshold']:.3f}. "
+        f"On the later test window, AUROC "
         f"was {cls['auroc']:.3f}, average precision {cls['average_precision']:.3f}, and kappa "
         f"{cls['kappa']:.3f}. It identified {cls['confusion_matrix'][1][1]} of "
         f"{sum(cls['confusion_matrix'][1])} eruptive examples (recall {cls['recall']:.3f}) "
         f"while marking {cls['confusion_matrix'][0][1]} repose examples as eruptive (precision "
-        f"{cls['precision']:.3f}). The score is near chance and produces many false alarms.",
+        f"{cls['precision']:.3f}). At the fixed 0.5 threshold it would identify "
+        f"{cls['threshold_0_5']['confusion_matrix'][1][1]} eruptive examples with F1 "
+        f"{cls['threshold_0_5']['f1']:.3f}. The ranking score is near chance and the "
+        "development-selected operating point produces many false alarms. The retained AUROC baseline "
+        f"would instead select {LABELS[base_c['family']]} ({base_c['config']}, "
+        f"development AUROC {base_c['development_metrics']['auroc']:.3f}); the two procedures optimize "
+        "different objectives, so the F1-selected procedure is not automatically an improvement.",
+        x, y, width) - 11
+
+    y = section(c, "Recall-first constraints", x, y)
+    y = paragraph(c,
+        f"Under a development FPR cap of 0.10, recall-first selected "
+        f"{LABELS[recall10['family']]} at threshold {recall10['threshold']:.3f}; its development "
+        f"recall/FPR were {recall10['development_metrics']['recall']:.3f}/{recall10['development_metrics']['false_positive_rate']:.3f}, "
+        f"and its test recall/FPR were {recall10['test_metrics']['recall']:.3f}/{recall10['test_metrics']['false_positive_rate']:.3f}. "
+        f"Under a 0.20 cap it selected {LABELS[recall20['family']]} at threshold {recall20['threshold']:.3f}; "
+        f"test recall/FPR were {recall20['test_metrics']['recall']:.3f}/{recall20['test_metrics']['false_positive_rate']:.3f}. "
+        "The test FPR is not constrained because it was not used for selection, and neither strategy recovered "
+        "the historical K-means positive count.",
+        x, y, width) - 11
+
+    y = section(c, "Controlled K-means threshold experiment", x, y)
+    y = paragraph(c,
+        f"To isolate the historical model from model selection, we fixed class-conditional K-means "
+        f"(k=4) and the original seven features. The fixed 0.5 operating point found "
+        f"{km['original_fixed_0_5']['test_metrics']['true_positives']} of 19 test positives "
+        f"(recall {km['original_fixed_0_5']['test_metrics']['recall']:.3f}) with "
+        f"{km['original_fixed_0_5']['test_metrics']['false_positives']} false positives. "
+        f"Development-F1 selection raised the threshold to {km['development_f1']['threshold']:.3f} "
+        f"and found {km['development_f1']['test_metrics']['true_positives']} positives. "
+        f"The development-FPR-constrained operating points found "
+        f"{km['recall_first_fpr_0_10']['test_metrics']['true_positives']} and "
+        f"{km['recall_first_fpr_0_20']['test_metrics']['true_positives']} positives for caps "
+        f"0.10 and 0.20, respectively. These thresholds were selected without test labels; "
+        f"the K-means test AUROC and average precision are {km['original_fixed_0_5']['test_metrics']['auroc']:.3f} "
+        f"and {km['original_fixed_0_5']['test_metrics']['average_precision']:.3f} for every row because "
+        "thresholding changes decisions, not ranking scores. The fixed historical threshold and optimized "
+        "thresholds are different operating procedures, and the results do not establish an improvement "
+        "over the historical result.",
+        x, y, width) - 11
+
+    y = section(c, "Controlled K-means model improvement", x, y)
+    y = paragraph(c,
+        f"We then evaluated k in 2, 3, 4, 5, 6 and 8 with raw and train-standardized "
+        f"original-seven-feature inputs and two positively oriented distance scores. "
+        f"Development AUROC selected {km_improvement['ranking_model']['config']} "
+        f"(development AUROC {km_improvement['ranking_model']['development_metrics']['auroc']:.3f}, "
+        f"average precision {km_improvement['ranking_model']['development_metrics']['average_precision']:.3f}). "
+        f"At its development-F1 threshold, the frozen test AUROC/AP were "
+        f"{km_improvement['operating_points']['development_f1']['test_metrics']['auroc']:.3f}/"
+        f"{km_improvement['operating_points']['development_f1']['test_metrics']['average_precision']:.3f}, "
+        f"with recall {km_improvement['operating_points']['development_f1']['test_metrics']['recall']:.3f} "
+        f"and FPR {km_improvement['operating_points']['development_f1']['test_metrics']['false_positive_rate']:.3f}. "
+        "This is a development-selected ranking configuration, not evidence of reliable future-period "
+        "forecasting; the test ranking can differ substantially from development performance.",
         x, y, width) - 11
 
     y = section(c, "Held-out time-to-eruption regression", x, y)

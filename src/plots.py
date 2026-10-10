@@ -29,14 +29,17 @@ NEUTRAL = "#94A3B8"    # baselines and chance lines
 
 # Fixed categorical order (validated: CVD-safe adjacent pairs, labels always shown).
 FAMILY_COLORS = {"baseline": NEUTRAL, "logistic": "#2A78D6", "forest": "#EB6834",
-                 "kmeans": "#1BAF7A", "mlp": "#EDA100"}
-FAMILY_STYLES = {"baseline": ":", "logistic": "-", "forest": "--", "kmeans": "-", "mlp": "-."}
+                 "kmeans": "#1BAF7A", "mlp": "#EDA100", "extra_trees": "#8B5CF6",
+                 "gradient_boosting": "#DC2626"}
+FAMILY_STYLES = {"baseline": ":", "logistic": "-", "forest": "--", "kmeans": "-", "mlp": "-.",
+                 "extra_trees": (0, (3, 1, 1, 1)), "gradient_boosting": (0, (5, 2))}
 CLASS_LABELS = {"baseline": "Prior baseline", "logistic": "Logistic regression",
                 "forest": "Random forest", "kmeans": "Class-conditional K-means",
-                "mlp": "Neural network (MLP)"}
+                "mlp": "Neural network (MLP)", "extra_trees": "Extra Trees",
+                "gradient_boosting": "Gradient boosting"}
 REG_LABELS = {"baseline": "Mean baseline", "forest": "Random forest",
               "kmeans": "Joint K-means", "mlp": "Neural network (MLP)"}
-CLASS_FAMILIES = ["baseline", "logistic", "forest", "kmeans", "mlp"]
+CLASS_FAMILIES = ["baseline", "logistic", "forest", "extra_trees", "gradient_boosting", "kmeans", "mlp"]
 REG_FAMILIES = ["baseline", "forest", "kmeans", "mlp"]
 
 
@@ -103,14 +106,16 @@ def draw_roc(ax, pred, metrics):
 def draw_confusion(ax, pred, metrics):
     y = pred["erupting"].astype(int).to_numpy()
     family = metrics["selection"]["classification"]["family"]
+    test_metrics = metrics["metrics"]["classification"][family]["test"]
+    threshold = float(test_metrics["threshold"])
     config = metrics["selection"]["classification"]["config"]
-    predicted = (pred[f"classification_{family}"].astype(float).to_numpy() >= .5).astype(int)
+    predicted = (pred[f"classification_{family}"].astype(float).to_numpy() >= threshold).astype(int)
     cm = confusion_matrix(y, predicted, labels=[0, 1])
     cmap = matplotlib.colors.LinearSegmentedColormap.from_list("blues", ["#EFF6FF", PRIMARY])
     ax.imshow(cm, cmap=cmap, vmin=0, vmax=cm.max())
     ax.set_xticks([0, 1], labels=["Repose", "Erupting"])
     ax.set_yticks([0, 1], labels=["Repose", "Erupting"])
-    ax.set_xlabel("Predicted label (score ≥ 0.5)")
+    ax.set_xlabel(f"Predicted label (score ≥ {threshold:.3f})")
     ax.set_ylabel("Catalog label")
     ax.set_title(f"Confusion matrix: {CLASS_LABELS[family]} ({config})")
     for i in range(2):

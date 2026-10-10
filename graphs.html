@@ -108,12 +108,12 @@ footer .wrap { padding-block: 24px 40px; font-size: 13.5px; color: var(--muted);
 <section id="results" aria-labelledby="h-results">
   <h2 id="h-results">Results on the held-out test period</h2>
   <div class="kpis">
-    <div class="kpi"><span class="v">0.524</span><span class="l">Classification AUROC</span><span class="c">0.5 = chance</span></div>
-    <div class="kpi"><span class="v">−0.012</span><span class="l">Cohen's kappa</span><span class="c">0 = chance agreement</span></div>
+    <div class="kpi"><span class="v">0.484</span><span class="l">Classification AUROC</span><span class="c">0.5 = chance</span></div>
+    <div class="kpi"><span class="v">−0.006</span><span class="l">Cohen's kappa</span><span class="c">0 = chance agreement</span></div>
     <div class="kpi"><span class="v">7.75 d</span><span class="l">Time-to-eruption RMSE</span><span class="c">mean baseline</span></div>
     <div class="kpi"><span class="v">−0.179</span><span class="l">Regression R²</span><span class="c">below 0 = worse than the test mean</span></div>
   </div>
-  <p class="callout">On earthquakes from February to July 1986, the models score close to chance. The development-selected classifier (Class-conditional K-means, k=4) found 12 of 19 eruptive earthquakes but flagged 194 of 277 repose earthquakes. These are classroom results on historical data, not eruption forecasts or calibrated hazard probabilities.</p>
+  <p class="callout">On earthquakes from February to July 1986, the models score close to chance. The joint development-F1 classifier (Logistic regression, C=10) uses threshold 0.611, found 4 of 19 eruptive earthquakes but flagged 62 of 277 repose earthquakes. The retained AUROC baseline selects Gradient boosting (n=100,depth=2); these procedures optimize different development objectives, so the F1-selected result is not automatically an improvement. These are classroom results on historical data, not eruption forecasts or calibrated hazard probabilities.</p>
 </section>
 
 <section id="data" aria-labelledby="h-data">
@@ -129,10 +129,10 @@ footer .wrap { padding-block: 24px 40px; font-size: 13.5px; color: var(--muted);
 <section id="method" aria-labelledby="h-method">
   <h2 id="h-method">Method</h2>
   <ol class="steps">
-    <li><b>Features.</b> Longitude, latitude, depth, magnitude, and the number of earthquakes in the previous 1, 7 and 30 days, counted strictly before each event.</li>
+    <li><b>Features.</b> The original seven features are retained; classification also tests four short-window features, all computed strictly before each event.</li>
     <li><b>Labels.</b> Erupting if inside an episode's duration plus a 24-hour buffer; time to eruption in days to the next onset.</li>
     <li><b>Split by time.</b> Train 2,023 · development 519 · test 296 earthquakes, with 30-day gaps and no labels that leak across a boundary.</li>
-    <li><b>Select, then test once.</b> Baselines, logistic regression, random forests, K-means and an MLP are tuned on development data; the winner is fixed before the test period is scored.</li>
+    <li><b>Select, then test once.</b> Baselines, logistic regression, tree ensembles, K-means and an MLP are tuned on development data; both the AUROC baseline and joint-F1 procedure are frozen before the test period is scored.</li>
   </ol>
 </section>
 
@@ -140,11 +140,34 @@ footer .wrap { padding-block: 24px 40px; font-size: 13.5px; color: var(--muted);
   <h2 id="h-cls">Is the volcano erupting?</h2>
   <div class="two">
     <figure><a href="output/figures/classification_roc.png" target="_blank" rel="noopener"><img src="output/figures/classification_roc.png" alt="ROC curves for five classifiers on the chronological test period, all close to the diagonal chance line."></a><figcaption>ROC curves on the test period. All models stay close to the chance diagonal; the random forest falls below it.</figcaption></figure>
-    <figure><a href="output/figures/classification_confusion_matrix.png" target="_blank" rel="noopener"><img src="output/figures/classification_confusion_matrix.png" alt="Confusion matrix: 83 repose correct, 194 repose flagged as erupting, 7 eruptive missed, 12 eruptive found."></a><figcaption>Confusion matrix of the selected model at a 0.5 score threshold.</figcaption></figure>
+    <figure><a href="output/figures/classification_confusion_matrix.png" target="_blank" rel="noopener"><img src="output/figures/classification_confusion_matrix.png" alt="Confusion matrix: 215 repose correct, 62 repose flagged as erupting, 15 eruptive missed, 4 eruptive found."></a><figcaption>Confusion matrix of the selected model at the development-selected threshold (0.611); the 0.5 baseline is retained in the saved metrics.</figcaption></figure>
   </div>
   <div class="tbl"><table>
     <thead><tr><th>Model</th><th>Setting</th><th>Dev AUROC</th><th>Test AUROC</th><th>Avg. precision</th><th>Kappa</th><th>Recall</th><th>Precision</th></tr></thead>
-    <tbody><tr class=""><td>Prior baseline</td><td>prior</td><td>0.500</td><td>0.500</td><td>0.064</td><td>0.000</td><td>0.000</td><td>0.000</td></tr><tr class=""><td>Logistic regression</td><td>C=1</td><td>0.555</td><td>0.502</td><td>0.125</td><td>−0.009</td><td>0.684</td><td>0.060</td></tr><tr class=""><td>Random forest</td><td>depth=None</td><td>0.549</td><td>0.373</td><td>0.050</td><td>0.000</td><td>0.000</td><td>0.000</td></tr><tr class="sel"><td>Class-conditional K-means<span class=pill>selected</span></td><td>k=4</td><td>0.572</td><td>0.524</td><td>0.096</td><td>−0.012</td><td>0.632</td><td>0.058</td></tr><tr class=""><td>Neural network (MLP)</td><td>alpha=0.001</td><td>0.476</td><td>0.469</td><td>0.061</td><td>−0.006</td><td>0.000</td><td>0.000</td></tr></tbody></table></div>
+    <tbody><tr class=""><td>Prior baseline</td><td>prior</td><td>0.500</td><td>0.500</td><td>0.064</td><td>0.000</td><td>1.000</td><td>0.064</td></tr><tr class=""><td>Extra Trees</td><td>n=200,depth=None</td><td>0.542</td><td>0.483</td><td>0.066</td><td>−0.019</td><td>0.053</td><td>0.048</td></tr><tr class=""><td>Random forest</td><td>depth=None</td><td>0.581</td><td>0.522</td><td>0.067</td><td>−0.072</td><td>0.000</td><td>0.000</td></tr><tr class=""><td>Gradient boosting</td><td>n=100,depth=2</td><td>0.603</td><td>0.532</td><td>0.098</td><td>−0.044</td><td>0.211</td><td>0.041</td></tr><tr class=""><td>Class-conditional K-means</td><td>k=4</td><td>0.572</td><td>0.524</td><td>0.096</td><td>0.042</td><td>0.474</td><td>0.087</td></tr><tr class="sel"><td>Logistic regression<span class=pill>selected</span></td><td>C=10</td><td>0.546</td><td>0.484</td><td>0.206</td><td>−0.006</td><td>0.211</td><td>0.061</td></tr><tr class=""><td>Neural network (MLP)</td><td>alpha=0.001</td><td>0.496</td><td>0.514</td><td>0.071</td><td>−0.032</td><td>0.053</td><td>0.038</td></tr></tbody></table></div>
+    <h3>Recall-first operating constraints</h3>
+    <p class="note">These strategies were selected using development data only. Their test FPR is reported after freezing the model and threshold and can differ from the development cap.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Strategy</th><th>Model</th><th>Threshold</th><th>Dev recall</th><th>Dev FPR</th><th>Test recall</th><th>Test FPR</th></tr></thead>
+      <tbody><tr><td>recall first fpr 0 10</td><td>Neural network (MLP)</td><td>0.45822203700804315</td><td>0.152</td><td>0.042</td><td>0.053</td><td>0.090</td></tr><tr><td>recall first fpr 0 20</td><td>Logistic regression</td><td>0.611168211950399</td><td>0.391</td><td>0.195</td><td>0.211</td><td>0.224</td></tr></tbody>
+    </table></div>
+    <h3>Selection-strategy comparison</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Strategy</th><th>Model</th><th>Test AUROC</th><th>Test AP</th><th>Test recall</th><th>Test precision</th><th>Test F1</th></tr></thead>
+      <tbody><tr><td>AUROC baseline</td><td>Gradient boosting</td><td>0.532</td><td>0.098</td><td>0.211</td><td>0.041</td><td>0.068</td></tr><tr><td>Joint development F1</td><td>Logistic regression</td><td>0.484</td><td>0.206</td><td>0.211</td><td>0.061</td><td>0.094</td></tr><tr><td>Recall-first, FPR ≤ 0.10</td><td>Neural network (MLP)</td><td>0.513</td><td>0.071</td><td>0.053</td><td>0.038</td><td>0.044</td></tr><tr><td>Recall-first, FPR ≤ 0.20</td><td>Logistic regression</td><td>0.484</td><td>0.206</td><td>0.211</td><td>0.061</td><td>0.094</td></tr></tbody>
+    </table></div>
+      <h3>Controlled K-means experiment</h3>
+      <p class="note">All rows use the same class-conditional K-means implementation, k=4, and original seven features. TP/FP/TN/FN are shown as development/test counts; only development metrics selected thresholds.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Operating point</th><th>Threshold</th><th>Dev TP/FP/TN/FN</th><th>Dev AUROC</th><th>Dev AP</th><th>Dev recall</th><th>Dev FPR</th><th>Test TP/FP/TN/FN</th><th>Test AUROC</th><th>Test AP</th><th>Test recall</th><th>Test F1</th></tr></thead>
+        <tbody><tr><td>Fixed threshold 0.5</td><td>0.500</td><td>36/322/151/10</td><td>0.572</td><td>0.144</td><td>0.783</td><td>0.681</td><td>12/194/83/7</td><td>0.524</td><td>0.096</td><td>0.632</td><td>0.107</td></tr><tr><td>Development-F1 threshold</td><td>0.538</td><td>22/166/307/24</td><td>0.572</td><td>0.144</td><td>0.478</td><td>0.351</td><td>9/95/182/10</td><td>0.524</td><td>0.096</td><td>0.474</td><td>0.146</td></tr><tr><td>Recall-first, FPR ≤ 0.10</td><td>0.608</td><td>6/40/433/40</td><td>0.572</td><td>0.144</td><td>0.130</td><td>0.085</td><td>1/11/266/18</td><td>0.524</td><td>0.096</td><td>0.053</td><td>0.065</td></tr><tr><td>Recall-first, FPR ≤ 0.20</td><td>0.565</td><td>14/90/383/32</td><td>0.572</td><td>0.144</td><td>0.304</td><td>0.190</td><td>6/38/239/13</td><td>0.524</td><td>0.096</td><td>0.316</td><td>0.190</td></tr></tbody>
+      </table></div>
+      <h3>Controlled K-means model-improvement grid</h3>
+      <p class="note">The development-AUROC winner was <b>k=3,scaling=raw,score=relative_distance</b> using original seven features. Every candidate was fitted on training data only; standardized candidates use a train-fitted scaler. The normalized-margin score is mathematically equivalent to the existing relative-distance score, so it is included as a direction check rather than an independent source of ranking information.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Operating point</th><th>Threshold</th><th>Dev AUROC/AP</th><th>Dev precision/recall/F1/FPR</th><th>Test AUROC/AP</th><th>Test TP/FP/TN/FN</th><th>Test precision/recall/F1/FPR</th></tr></thead>
+        <tbody><tr><td>Fixed threshold 0.5</td><td>0.500</td><td>0.668/0.221</td><td>0.090/0.848/0.162/0.837</td><td>0.515/0.068</td><td>19/271/6/0</td><td>0.066/1.000/0.123/0.978</td></tr><tr><td>Development-F1 threshold</td><td>0.797</td><td>0.668/0.221</td><td>0.186/0.522/0.274/0.222</td><td>0.515/0.068</td><td>3/49/228/16</td><td>0.058/0.158/0.085/0.177</td></tr><tr><td>Recall-first, FPR ≤ 0.10</td><td>0.843</td><td>0.668/0.221</td><td>0.233/0.304/0.264/0.097</td><td>0.515/0.068</td><td>0/18/259/19</td><td>0.000/0.000/0.000/0.065</td></tr><tr><td>Recall-first, FPR ≤ 0.20</td><td>0.812</td><td>0.668/0.221</td><td>0.193/0.457/0.271/0.186</td><td>0.515/0.068</td><td>3/38/239/16</td><td>0.073/0.158/0.100/0.137</td></tr></tbody>
+      </table></div>
 </section>
 
 <section id="regression" aria-labelledby="h-reg">
@@ -155,7 +178,7 @@ footer .wrap { padding-block: 24px 40px; font-size: 13.5px; color: var(--muted);
   </div>
   <div class="tbl"><table>
     <thead><tr><th>Model</th><th>Setting</th><th>Dev RMSE (d)</th><th>Test RMSE (d)</th><th>Test MAE (d)</th><th>Test R²</th></tr></thead>
-    <tbody><tr class="sel"><td>Mean baseline<span class=pill>selected</span></td><td>mean</td><td>10.41</td><td>7.75</td><td>6.60</td><td>−0.179</td></tr><tr class=""><td>Random forest</td><td>depth=5</td><td>10.69</td><td>7.30</td><td>6.25</td><td>−0.048</td></tr><tr class=""><td>Joint K-means</td><td>k=10</td><td>14.10</td><td>7.56</td><td>6.40</td><td>−0.121</td></tr><tr class=""><td>Neural network (MLP)</td><td>alpha=0.1</td><td>11.20</td><td>8.28</td><td>6.93</td><td>−0.345</td></tr></tbody></table></div>
+    <tbody><tr class="sel"><td>Mean baseline<span class=pill>selected</span></td><td>mean</td><td>10.41</td><td>7.75</td><td>6.60</td><td>−0.179</td></tr><tr class=""><td>Random forest</td><td>depth=5</td><td>10.69</td><td>7.30</td><td>6.25</td><td>−0.048</td></tr><tr class=""><td>Joint K-means</td><td>k=10</td><td>14.10</td><td>7.56</td><td>6.40</td><td>−0.121</td></tr><tr class=""><td>Neural network (MLP)</td><td>alpha=0.001</td><td>10.90</td><td>7.54</td><td>6.47</td><td>−0.116</td></tr></tbody></table></div>
 </section>
 
 <section id="splits" aria-labelledby="h-splits">
@@ -166,9 +189,9 @@ footer .wrap { padding-block: 24px 40px; font-size: 13.5px; color: var(--muted);
     <div class="tbl"><table>
       <thead><tr><th>Test metric</th><th>Time-ordered</th><th>Random (ours)</th><th>Paper (random)</th></tr></thead>
       <tbody>
-        <tr><td>Classifier</td><td>Class-conditional K-means</td><td>Random forest</td><td>Random forest</td></tr>
-        <tr><td>AUROC</td><td>0.524</td><td>0.682</td><td>0.71</td></tr>
-        <tr><td>Kappa</td><td>−0.012</td><td>0.114</td><td>0.52*</td></tr>
+        <tr><td>Classifier</td><td>Logistic regression</td><td>Random forest</td><td>Random forest</td></tr>
+        <tr><td>AUROC</td><td>0.484</td><td>0.685</td><td>0.71</td></tr>
+        <tr><td>Kappa</td><td>−0.006</td><td>0.185</td><td>0.52*</td></tr>
         <tr><td>Regressor</td><td>Mean baseline</td><td>Random forest</td><td>Random forest</td></tr>
         <tr><td>RMSE</td><td>7.75 d</td><td>11.01 d</td><td>0.64 (scaled)</td></tr>
         <tr><td>R²</td><td>−0.179</td><td>0.160</td><td>0.38</td></tr>

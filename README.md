@@ -1,105 +1,267 @@
-# PEEVED: eruption activity from earthquake data
+# Problem 64: Predicting Eruptive Events at Volcanoes from Earthquake Data
 
-**UE24CS352A Machine Learning mini-project** — Prithvish Adhikari (PES1UG24AM206) and Piyush Shiv (PES1UG24AM191)
+**UE24CS352A Machine Learning mini-project**  
+**Team:** Prithvish Adhikari (PES1UG24AM206) and Piyush Shiv (PES1UG24AM191)
 
-This mini-project adapts two tasks from Mullet, Singh, and Wong's CS229 study of Pu'u O'o, Kilauea: classify whether an earthquake occurred during an eruptive episode, and estimate days to the next eruption. The source paper reports promising results for a random forest using a random split. This adaptation uses the same bundled catalogs and feature set, applies documented data fixes, and adds a time-ordered evaluation so we can measure performance on later earthquakes without tuning on the test period.
+This project is inspired by the Stanford CS229 PEEVED study of Kilauea earthquake data. It asks two related questions:
 
-## Set up
+1. **Classification:** did an earthquake occur during an eruptive episode?
+2. **Regression:** how many days remained until the next eruption onset?
 
-Use Python 3.12. In **Command Prompt (cmd.exe)**, create and activate the virtual environment, then install the pinned dependencies:
+This is a classroom research project. It is not an operational volcano-warning system, and its scores are not calibrated hazard probabilities.
+
+## Motivation
+
+Earthquake activity can change during volcanic unrest. Location, depth, magnitude, and recent earthquake rates may therefore contain information about whether an eruptive episode is active. The project tests that intuition while emphasizing a realistic time-ordered evaluation: models are trained on earlier earthquakes, selected on a later development period, and evaluated once on a final later test period.
+
+## Dataset
+
+The repository includes the earthquake and eruption catalogs in [`data/raw/`](data/raw/):
+
+- `puuoo_earthquakes.csv`
+- `PuuOo.csv`
+
+`src/data.py` filters earthquake records to Kilauea's East Rift Zone, removes invalid or duplicate records, aligns the eruption catalog, and applies the documented episode-48 coverage cutoff. The modeled dataset has **2,960 earthquakes**, including **304 eruptive examples**.
+
+The original seven features are:
+
+- longitude
+- latitude
+- depth
+- magnitude
+- earthquake counts in the preceding 1, 7, and 30 days
+
+The expanded classification feature set adds four strictly past-only features:
+
+- earthquake count in the preceding 6 hours
+- hours since the previous earthquake
+- mean magnitude in the preceding 24 hours
+- maximum magnitude in the preceding 24 hours
+
+For every temporal feature, only earthquakes strictly before the prediction timestamp are used. Duplicate timestamps do not contribute to one another. The eruption labels use the catalog episode intervals plus the project's 24-hour uncertainty buffer. The corrupted duration listed for episode 48 (`173566800 hrs`) is not used; its onset is retained as an exclusive coverage cutoff. Eruption entries 35.5 and 35 are sorted with their matching durations before labeling.
+
+## Methodology
+
+### Preprocessing and labels
+
+The data preparation and feature calculations are implemented in [`src/data.py`](src/data.py). The target columns are kept separate from the feature columns, and the time-to-eruption target is not used as a classification feature.
+
+### Chronological evaluation
+
+The primary protocol in [`src/experiment.py`](src/experiment.py) is time ordered:
+
+- training: 2,023 rows
+- development: 519 rows
+- test: 296 rows
+
+The split uses approximately 70%/20%/10% of the time range, with 30-day temporal gaps and label-availability checks at the boundaries. The development set is used to choose models, configurations, and classification thresholds. The chronological test set is used only after those choices are frozen.
+
+The random split is retained as a secondary comparison. It is easier to overestimate performance because nearby earthquakes can appear in both training and test sets.
+
+## Models and experiments
+
+Implemented model families include:
+
+- prior and mean baselines
+- logistic regression
+- random forest
+- Extra Trees
+- gradient boosting
+- class-conditional K-means
+- small MLP models
+- joint K-means regression
+
+All preprocessing in model pipelines is fitted on training rows and then reused for development, test, and inference.
+
+### Classification selection and threshold experiments
+
+The repository records several distinct procedures:
+
+- **AUROC baseline:** selects the candidate with the best development AUROC.
+- **Joint development-F1 selection:** selects model, feature set, and threshold primarily by development F1, then average precision and deterministic tie-breakers.
+- **Recall-first selection:** selects the highest development recall under development FPR caps of 0.10 and 0.20. Ties prefer fewer false positives, higher precision, higher average precision, higher threshold, and stable names.
+- **Controlled K-means threshold comparison:** fixes the existing `k=4`, original-seven-feature K-means model and compares threshold 0.5, development-F1 thresholding, and the two FPR-constrained thresholds.
+- **Controlled K-means configuration search:** evaluates `k` in `{2, 3, 4, 5, 6, 8}`, raw versus standardized original-seven-feature inputs, and two equivalent positively oriented distance scores. Configurations are selected by development AUROC, then development average precision.
+
+These experiments answer different questions. Threshold changes affect precision, recall, and false alarms; they do not change AUROC or average precision for a fixed ranking model. The test set is not used to select any of these settings.
+
+### Regression
+
+Regression candidates are selected using development RMSE. The mean baseline is preserved even when another model has a lower test error, because model selection must be based on development data.
+
+## Results
+
+The values below are read from [`results/chronological/metrics.json`](results/chronological/metrics.json). The chronological test contains only 19 positive examples, so all test classification rates are uncertain.
+
+### Primary chronological classification results
+
+| Procedure | Selected model | Features | Threshold | Dev AUROC | Test AUROC | Test AP | Test precision | Test recall | Test F1 | Test FPR | Test TP/FP/TN/FN |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| AUROC baseline | Gradient Boosting | Expanded 11 | 0.087 | 0.603 | 0.532 | 0.098 | 0.041 | 0.211 | 0.068 | 0.339 | 4/94/183/15 |
+| Joint development F1 | Logistic Regression | Expanded 11 | 0.611 | 0.546 | 0.484 | 0.206 | 0.061 | 0.211 | 0.094 | 0.224 | 4/62/215/15 |
+| Recall-first, FPR ≤ 0.10 | MLP | Original 7 | 0.458 | — | 0.513 | 0.098 | 0.038 | 0.053 | 0.044 | 0.090 | 1/25/252/18 |
+| Recall-first, FPR ≤ 0.20 | Logistic Regression | Expanded 11 | 0.611 | — | 0.484 | 0.206 | 0.061 | 0.211 | 0.094 | 0.224 | 4/62/215/15 |
+
+The AUROC and joint-F1 rows use different model-selection objectives and should not be described as a single improvement sequence. Neither recall-first strategy recovered the historical K-means count of 12/19 positives.
+
+### Controlled historical K-means threshold comparison
+
+This comparison fixes class-conditional K-means with `k=4`, the original seven features, and the existing standardized pipeline.
+
+| Operating point | Threshold | Dev AUROC/AP | Test AUROC/AP | Test precision | Test recall | Test F1 | Test FPR | Test TP/FP/TN/FN |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Historical fixed threshold | 0.500 | 0.572/0.144 | 0.524/0.096 | 0.058 | 0.632 | 0.107 | 0.700 | 12/194/83/7 |
+| Development-F1 threshold | 0.538 | 0.572/0.144 | 0.524/0.096 | 0.087 | 0.474 | 0.146 | 0.343 | 9/95/182/10 |
+| Recall-first, development FPR ≤ 0.10 | 0.608 | 0.572/0.144 | 0.524/0.096 | 0.083 | 0.053 | 0.065 | 0.040 | 1/11/266/18 |
+| Recall-first, development FPR ≤ 0.20 | 0.565 | 0.572/0.144 | 0.524/0.096 | 0.136 | 0.316 | 0.190 | 0.137 | 6/38/239/13 |
+
+The historical fixed threshold detects 12/19 test positives, but also flags 194 repose examples. The development-selected thresholds reduce false alarms for this run without improving ranking performance.
+
+### Controlled K-means configuration search
+
+The development-AUROC winner was `k=3, scaling=raw, score=relative_distance`.
+
+| Configuration | Dev AUROC | Dev AP | Test AUROC | Test AP | Test F1 threshold | Test TP/FP/TN/FN | Test recall | Test FPR |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Historical `k=4`, standard, relative distance | 0.572 | 0.144 | 0.524 | 0.096 | 0.500 | 12/194/83/7 | 0.632 | 0.700 |
+| Development-selected `k=3`, raw, relative distance | 0.668 | 0.221 | 0.515 | 0.068 | 0.797 | 3/49/228/16 | 0.158 | 0.177 |
+
+The selected configuration improves development AUROC but not chronological test AUROC or recall. The normalized-margin score is an algebraically equivalent form of the relative-distance score and is retained as a score-direction check, not as an independent source of information.
+
+### Regression and random comparison
+
+The chronological development-selected mean regression baseline has test RMSE **7.75 days**, MAE **6.60 days**, and R² **-0.179**. The random-split joint-F1 classification result selects an expanded-feature random forest and reaches test AUROC **0.685**, AP **0.311**, F1 **0.216**, and kappa **0.185**. These random results are secondary and should not be presented as later-period forecasting performance.
+
+## Repository structure
+
+```text
+.
+├── assets/fonts/                 Fonts used by charts and PDF
+├── data/raw/                     Bundled earthquake and eruption catalogs
+├── models/                       Saved chronological model bundles
+├── notebooks/walkthrough.ipynb   Guided notebook
+├── output/
+│   ├── figures/                  PNG/PDF figures
+│   ├── pdf/                      Two-page report
+│   └── slides/                   Final PowerPoint
+├── reference/PEEVED/             Original project as a Git submodule
+├── results/
+│   ├── chronological/            Time-ordered metrics, predictions, tuning
+│   └── random/                   Secondary random-split outputs
+├── scripts/                      Figure, website, and PDF builders
+├── src/
+│   ├── data.py                   Data preparation and past-only features
+│   ├── experiment.py              Training, selection, evaluation, saving
+│   ├── models.py                 K-means model classes
+│   └── plots.py                  Plotting helpers
+├── tests/test_pipeline.py        Unit tests
+├── demo.py                       Saved-model held-out prediction
+├── graphs.html                   Generated results website
+├── requirements.txt              Runtime dependencies
+└── requirements-notebook.txt     Optional notebook dependencies
+```
+
+## Installation and setup
+
+The repository does not declare a `pyproject.toml` Python constraint. The current requirements and project instructions target Python 3.12 or newer; the saved results were generated with Python 3.14.3 and scikit-learn 1.7.2. Use a compatible Python installation.
+
+### macOS/Linux
+
+```bash
+cd PES1UG24AM206_ML_Mini_Project
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+### Windows Command Prompt
 
 ```bat
 cd /d D:\ML_Mini_Project
 py -3.12 -m venv .venv
 call .venv\Scripts\activate.bat
-where python
-python -m ensurepip --upgrade
 python -m pip install -r requirements.txt
 ```
 
-After activation, `where python` should list `D:\ML_Mini_Project\.venv\Scripts\python.exe` first and the prompt should start with `(.venv)`. The PowerShell activation command is different: run `.\.venv\Scripts\Activate.ps1` in PowerShell. If you do not want to activate the environment, use `.venv\Scripts\python.exe -m pip install -r requirements.txt` and `.venv\Scripts\python.exe -m src.experiment --protocol both` directly in Command Prompt.
+PowerShell activation:
 
-## Run the project
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
 
-Check the pipeline first (about one second):
+The catalogs are already included under `data/raw/`; no separate dataset download is required. To fetch the reference submodule as well, clone with:
 
-```bat
+```bash
+git clone --recurse-submodules <repository-url>
+```
+
+## How to run
+
+Run the tests:
+
+```bash
 python -m unittest discover -s tests -v
 ```
 
-To view the saved graphs without running Python, open `graphs.html` in a browser. Keep it in the project folder so its links to `output/figures/` work. It shows the headline metrics, all charts with their tables, the random-split comparison and the key code. Click a graph to open it at full size; the combined chart sheet is `output/figures/kilauea_panel_figures.pdf`.
+Run both experiment protocols:
 
-Run both the chronological and random-split comparisons (about 30 seconds). This overwrites the saved files in `results/` and `models/`; with the pinned versions in `requirements.txt` it reproduces them. To rerun without touching the saved files, write to a separate folder, for example `python -m src.experiment --protocol chronological --output-dir tmp/chrono`.
-
-```bat
+```bash
 python -m src.experiment --protocol both
 ```
 
-The chronological run writes prepared data, model selection records, test predictions, metrics, and fitted model bundles under `results/chronological/` and `models/`. The random split writes equivalent evaluation files under `results/random/`. Run a held-out prediction from the saved chronological models:
+This retrains the models and overwrites saved files under `results/` and `models/`. To keep the checked-in outputs unchanged while testing a chronological run, use:
 
-```bat
-python demo.py --row 0
+```bash
+python -m src.experiment --protocol chronological --output-dir tmp/chrono
 ```
 
-Use `python demo.py --interactive` to inspect more held-out rows. The demo displays the model score and the catalog labels for comparison. It is a historical classroom demonstration, not a calibrated probability or a volcano warning system.
+Run the held-out demo:
 
-Build presentation figures from the saved chronological test predictions:
+```bash
+python demo.py --row 0
+python demo.py --interactive
+```
 
-```bat
+Rebuild figures from saved results without retraining:
+
+```bash
 python scripts/build_figures.py
 ```
 
-The script reads the saved results (it does not retrain anything) and saves six high-resolution charts plus a combined panel sheet (PDF and PNG) in `output/figures/`: ROC curves, the confusion matrix, regression error, observed versus predicted time to eruption, a chronological-versus-random comparison, and a timeline of the split. Model names and the development-selected models are read from `results/`. Fonts come from `assets/fonts/`, so the scripts run on Windows, macOS and Linux.
+Rebuild the two-page PDF:
 
-Rebuild the two-page PDF summary after rerunning the experiment and the figures (it embeds two charts from `output/figures/`):
-
-```bat
+```bash
 python scripts/build_writeup.py
 ```
 
-## Notebook walkthrough
+Rebuild the website:
 
-`notebooks/walkthrough.ipynb` walks through the data audit, features, labels, the time-ordered split, the models and every chart, with the outputs already saved. It reads the saved results; one optional cell reruns the full experiment into `tmp/` so the saved files are not changed. To open it:
-
-```bat
-python -m pip install -r requirements-notebook.txt
-python -m jupyter lab notebooks/walkthrough.ipynb
+```bash
+python scripts/build_site.py
 ```
 
-## Data and features
+Open [`graphs.html`](graphs.html) in a browser from the project root so its relative figure links work. The submitted PDF is [`output/pdf/PEEVED_Mini_Project_Summary.pdf`](output/pdf/PEEVED_Mini_Project_Summary.pdf), and the presentation is [`output/slides/PEEVED_Mini_Project_Review_Final.pptx`](output/slides/PEEVED_Mini_Project_Review_Final.pptx).
 
-The bundled CSV files are the earthquake and Pu'u O'o eruption catalogs used by the reference PEEVED project (byte-identical copies). The paper sources the earthquakes from the ANSS catalog hosted by WOVOdat and the eruption history from the Hawaii Center for Volcanology. `src/data.py` filters earthquakes to the East Rift Zone, removes invalid/duplicate records, and builds seven features: longitude, latitude, depth, magnitude, and earthquake counts in the preceding 1, 7, and 30 days. Rolling counts exclude events at the current timestamp. Eruptive labels include a 24-hour uncertainty buffer. Events before the catalog warm-up period, after the episode-48 coverage cutoff, or without a known next eruption are excluded.
+## Reproducibility and outputs
 
-The eruption catalog contains a duration typo for episode 48 (`173566800 hrs`). We retain the episode's known start as an exclusive coverage cutoff and do not use the corrupted duration. The catalog also lists events 35.5 and 35 out of date order; preprocessing sorts onset dates and their matching durations together.
+- `results/*/metrics.json`: audit information, model selections, development metrics, test metrics, and warnings
+- `results/*/test_predictions.csv`: frozen test predictions
+- `results/*/tuning.csv`: candidate development records
+- `results/*/prepared_data.csv`: prepared rows and split assignments
+- `models/`: serialized model bundles used by the demo
+- `output/figures/`: generated figures
+- `graphs.html`: generated results page
+- `output/pdf/`: two-page report
+- `output/slides/`: presentation
 
-On the 2,960 modeled rows, the eruptive labels match the original PEEVED `was_erupting` rule exactly. Applied to all 3,764 East Rift earthquakes, that rule labels 22.4% as erupting (the paper reports about 20%). The lower 10.3% here comes from two documented exclusions: 282 events after 20 July 1986 that are labelled erupting only through episode 48's corrupted duration, and the 522 earthquakes of the 30-day warm-up in January 1983.
+The current test suite has **17 passing tests**. This count should be rechecked after any code or dependency change.
 
-## Evaluation
+## Limitations and future work
 
-The primary split is chronological: 70% train, 20% development, and 10% test by time, with a 30-day gap and labels that must have become observable before the next split. Model choices are selected on development data. Classification reports AUROC, average precision, Cohen's kappa, precision, recall, F1, and a confusion matrix. Regression reports RMSE, MAE, and R-squared. The random split is included as a comparison because neighboring events can make a random holdout look more favorable than forecasting later periods.
+The chronological test period contains only 19 eruptive examples, so recall, precision, and FPR estimates have wide uncertainty. Later-period ranking performance is close to chance for the main classifiers, and the K-means configuration search improved development AUROC without improving chronological test AUROC. Earthquake-only inputs also omit important volcanic signals such as ground deformation, gas emissions, thermal observations, and seismic waveform information. Future work could add those signals, use longer catalogs, and evaluate uncertainty across multiple time splits without using the final test period for tuning.
 
-On the bundled data, 2,960 earthquakes remain for modeling and 10.3% carry an erupting label. Chronological test AUROC is 0.524 for the development-selected class-conditional K-means model; its kappa is -0.012. The development-selected regression baseline has test RMSE 7.75 days and R-squared -0.179. The chronological test period contains only 19 eruptive earthquakes, so these estimates are uncertain (a stratified bootstrap 95% interval for the AUROC is roughly 0.37–0.68, and it is optimistic because nearby earthquakes are correlated). These results do not support reliable eruption forecasting from these seven catalog features alone, and the scores are not calibrated hazard probabilities.
+## References
 
-For comparison, the random split (stratified 70/20/10, as in the paper) selects random forests: test AUROC 0.682 and kappa 0.114 for classification, and RMSE 11.01 days with R-squared 0.160 for regression. The paper's random forest reports test kappa 0.52 and AUROC 0.71 (its text quotes kappa 0.42) and R-squared 0.38; its RMSE is on a standardized target and is not comparable with RMSE in days.
-
-## Project files
-
-- `src/data.py`: source cleaning, leakage-aware features, eruption labels
-- `src/models.py`: K-means model wrappers
-- `src/plots.py`: shared chart style and drawing functions (scripts, notebook)
-- `notebooks/walkthrough.ipynb`: narrated walkthrough with saved outputs
-- `assets/fonts/`: Open Sans and Montserrat (SIL Open Font License) used by the charts and PDF
-- `src/experiment.py`: model selection, chronological/random evaluation, saved outputs
-- `demo.py`: held-out prediction demonstration
-- `tests/test_pipeline.py`: focused checks for feature and label boundaries
-- `output/figures/`: charts built by `scripts/build_figures.py`
-- `output/pdf/`: two-page assignment write-up
-- `output/slides/`: review presentation
-- `graphs.html`: results page built by `scripts/build_site.py` (open it in a browser from the project folder)
-
-`reference/PEEVED` is a Git submodule pointing to the original repository; use `git clone --recurse-submodules` to fetch it. Nothing in the pipeline needs it. Local environments, temporary previews, and build files are excluded from Git.
-
-## Sources
-
-- Ben Mullet, Ankush Singh, and Ying-Qi Wong, “Predicting Eruptive Events at Volcanoes from Earthquake Data,” Stanford CS229 project report, Fall 2019. See `reference/PEEVED/`.
-- Original code and bundled catalog source: [bmullet/PEEVED](https://github.com/bmullet/PEEVED).
+- Ben Mullet, Ankush Singh, and Ying-Qi Wong, “Predicting Eruptive Events at Volcanoes from Earthquake Data,” Stanford CS229 project report, Fall 2019.
+- Original implementation and catalogs: [bmullet/PEEVED](https://github.com/bmullet/PEEVED)
+- Local reference copy: [`reference/PEEVED/`](reference/PEEVED/)

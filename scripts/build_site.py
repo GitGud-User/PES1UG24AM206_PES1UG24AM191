@@ -17,6 +17,7 @@ from src.data import past_counts  # noqa: E402
 from src.experiment import split_data  # noqa: E402
 
 CLASS = {"baseline": "Prior baseline", "logistic": "Logistic regression", "forest": "Random forest",
+         "extra_trees": "Extra Trees", "gradient_boosting": "Gradient boosting",
          "kmeans": "Class-conditional K-means", "mlp": "Neural network (MLP)"}
 REG = {"baseline": "Mean baseline", "forest": "Random forest", "kmeans": "Joint K-means",
        "mlp": "Neural network (MLP)"}
@@ -130,6 +131,7 @@ def build(embed=False):
     rnd = json.loads((ROOT / "results/random/metrics.json").read_text(encoding="utf-8"))
     a = chrono["audit"]
     sc, sr = chrono["selection"]["classification"], chrono["selection"]["regression"]
+    bsc = chrono["selection_baseline"]["classification"]
     ct = chrono["metrics"]["classification"][sc["family"]]["test"]
     rt = chrono["metrics"]["regression"][sr["family"]]["test"]
     cm = ct["confusion_matrix"]
@@ -137,6 +139,68 @@ def build(embed=False):
     rct = rnd["metrics"]["classification"][rsc]["test"]
     rrt = rnd["metrics"]["regression"][rsr]["test"]
     sp = a["splits"]
+    recall_rows = "".join(
+        f'<tr><td>{html.escape(strategy.replace("_", " "))}</td>'
+        f'<td>{CLASS.get(value["family"], "—") if value.get("status") != "no_eligible_candidate" else "—"}</td>'
+        f'<td>{value.get("threshold", "—") if value.get("status") != "no_eligible_candidate" else "—"}</td>'
+        f'<td>{fmt(value["development_metrics"]["recall"]) if value.get("status") != "no_eligible_candidate" else "—"}</td>'
+        f'<td>{fmt(value["development_metrics"]["false_positive_rate"]) if value.get("status") != "no_eligible_candidate" else "—"}</td>'
+        f'<td>{fmt(value["test_metrics"]["recall"]) if value.get("status") != "no_eligible_candidate" else "—"}</td>'
+        f'<td>{fmt(value["test_metrics"]["false_positive_rate"]) if value.get("status") != "no_eligible_candidate" else "—"}</td></tr>'
+        for strategy, value in chrono["selection_recall_first"].items()
+    )
+    strategy_values = [
+        ("AUROC baseline", chrono["selection_baseline"]["classification"]),
+        ("Joint development F1", chrono["selection"]["classification"]),
+        ("Recall-first, FPR ≤ 0.10", chrono["selection_recall_first"]["recall_first_fpr_0_10"]),
+        ("Recall-first, FPR ≤ 0.20", chrono["selection_recall_first"]["recall_first_fpr_0_20"]),
+    ]
+    strategy_rows = "".join(
+        f'<tr><td>{html.escape(label)}</td>'
+        f'<td>{CLASS.get(value["family"], "—") if value.get("status") != "no_eligible_candidate" else "—"}</td>'
+        f'<td>{fmt(value["test_metrics"]["auroc"]) if value.get("status") != "no_eligible_candidate" else "—"}</td>'
+        f'<td>{fmt(value["test_metrics"]["average_precision"]) if value.get("status") != "no_eligible_candidate" else "—"}</td>'
+        f'<td>{fmt(value["test_metrics"]["recall"]) if value.get("status") != "no_eligible_candidate" else "—"}</td>'
+        f'<td>{fmt(value["test_metrics"]["precision"]) if value.get("status") != "no_eligible_candidate" else "—"}</td>'
+        f'<td>{fmt(value["test_metrics"]["f1"]) if value.get("status") != "no_eligible_candidate" else "—"}</td></tr>'
+        for label, value in strategy_values
+    )
+    kmeans_rows = "".join(
+        f'<tr><td>{html.escape(label)}</td><td>{value["threshold"]:.3f}</td>'
+        f'<td>{value["development_metrics"]["true_positives"]}/{value["development_metrics"]["false_positives"]}/'
+        f'{value["development_metrics"]["true_negatives"]}/{value["development_metrics"]["false_negatives"]}</td>'
+        f'<td>{value["development_metrics"]["auroc"]:.3f}</td><td>{value["development_metrics"]["average_precision"]:.3f}</td>'
+        f'<td>{value["development_metrics"]["recall"]:.3f}</td><td>{value["development_metrics"]["false_positive_rate"]:.3f}</td>'
+        f'<td>{value["test_metrics"]["true_positives"]}/{value["test_metrics"]["false_positives"]}/'
+        f'{value["test_metrics"]["true_negatives"]}/{value["test_metrics"]["false_negatives"]}</td>'
+        f'<td>{value["test_metrics"]["auroc"]:.3f}</td><td>{value["test_metrics"]["average_precision"]:.3f}</td>'
+        f'<td>{value["test_metrics"]["recall"]:.3f}</td><td>{value["test_metrics"]["f1"]:.3f}</td></tr>'
+        for label, value in (
+            ("Fixed threshold 0.5", chrono["selection_kmeans_controlled"]["original_fixed_0_5"]),
+            ("Development-F1 threshold", chrono["selection_kmeans_controlled"]["development_f1"]),
+            ("Recall-first, FPR ≤ 0.10", chrono["selection_kmeans_controlled"]["recall_first_fpr_0_10"]),
+            ("Recall-first, FPR ≤ 0.20", chrono["selection_kmeans_controlled"]["recall_first_fpr_0_20"]),
+        )
+    )
+    km_improved = chrono["selection_kmeans_improvement"]
+    km_winner = km_improved["ranking_model"]
+    km_improvement_rows = "".join(
+            f'<tr><td>{html.escape(label)}</td><td>{value["threshold"]:.3f}</td>'
+            f'<td>{value["development_metrics"]["auroc"]:.3f}/{value["development_metrics"]["average_precision"]:.3f}</td>'
+            f'<td>{value["development_metrics"]["precision"]:.3f}/{value["development_metrics"]["recall"]:.3f}/'
+            f'{value["development_metrics"]["f1"]:.3f}/{value["development_metrics"]["false_positive_rate"]:.3f}</td>'
+            f'<td>{value["test_metrics"]["auroc"]:.3f}/{value["test_metrics"]["average_precision"]:.3f}</td>'
+            f'<td>{value["test_metrics"]["true_positives"]}/{value["test_metrics"]["false_positives"]}/'
+            f'{value["test_metrics"]["true_negatives"]}/{value["test_metrics"]["false_negatives"]}</td>'
+            f'<td>{value["test_metrics"]["precision"]:.3f}/{value["test_metrics"]["recall"]:.3f}/'
+            f'{value["test_metrics"]["f1"]:.3f}/{value["test_metrics"]["false_positive_rate"]:.3f}</td></tr>'
+            for label, value in (
+                ("Fixed threshold 0.5", km_improved["operating_points"]["original_fixed_0_5"]),
+                ("Development-F1 threshold", km_improved["operating_points"]["development_f1"]),
+                ("Recall-first, FPR ≤ 0.10", km_improved["operating_points"]["recall_first_fpr_0_10"]),
+                ("Recall-first, FPR ≤ 0.20", km_improved["operating_points"]["recall_first_fpr_0_20"]),
+            )
+    )
 
     cls_rows = "".join(
         f'<tr class="{"sel" if f == sc["family"] else ""}"><td>{CLASS[f]}'
@@ -144,7 +208,8 @@ def build(embed=False):
         f'<td>{fmt(v["development"]["auroc"])}</td><td>{fmt(v["test"]["auroc"])}</td>'
         f'<td>{fmt(v["test"]["average_precision"])}</td><td>{fmt(v["test"]["kappa"])}</td>'
         f'<td>{fmt(v["test"]["recall"])}</td><td>{fmt(v["test"]["precision"])}</td></tr>'
-        for f, v in chrono["metrics"]["classification"].items())
+        for f, v in chrono["metrics"]["classification"].items()
+        if f != "selected_joint")
     reg_rows = "".join(
         f'<tr class="{"sel" if f == sr["family"] else ""}"><td>{REG[f]}'
         f'{"<span class=pill>selected</span>" if f == sr["family"] else ""}</td><td>{v["config"]}</td>'
@@ -196,7 +261,7 @@ test metrics are computed once, for every family's dev-best model'''
     <div class="kpi"><span class="v">{fmt(rt['rmse_days'], 2)} d</span><span class="l">Time-to-eruption RMSE</span><span class="c">{REG[sr['family']].lower()}</span></div>
     <div class="kpi"><span class="v">{fmt(rt['r2'])}</span><span class="l">Regression R²</span><span class="c">below 0 = worse than the test mean</span></div>
   </div>
-  <p class="callout">On earthquakes from February to July 1986, the models score close to chance. The development-selected classifier ({CLASS[sc['family']]}, {sc['config']}) found {cm[1][1]} of {sum(cm[1])} eruptive earthquakes but flagged {cm[0][1]} of {sum(cm[0])} repose earthquakes. These are classroom results on historical data, not eruption forecasts or calibrated hazard probabilities.</p>
+  <p class="callout">On earthquakes from February to July 1986, the models score close to chance. The joint development-F1 classifier ({CLASS[sc['family']]}, {sc['config']}) uses threshold {ct['threshold']:.3f}, found {cm[1][1]} of {sum(cm[1])} eruptive earthquakes but flagged {cm[0][1]} of {sum(cm[0])} repose earthquakes. The retained AUROC baseline selects {CLASS[bsc['family']]} ({bsc['config']}); these procedures optimize different development objectives, so the F1-selected result is not automatically an improvement. These are classroom results on historical data, not eruption forecasts or calibrated hazard probabilities.</p>
 </section>
 
 <section id="data" aria-labelledby="h-data">
@@ -212,10 +277,10 @@ test metrics are computed once, for every family's dev-best model'''
 <section id="method" aria-labelledby="h-method">
   <h2 id="h-method">Method</h2>
   <ol class="steps">
-    <li><b>Features.</b> Longitude, latitude, depth, magnitude, and the number of earthquakes in the previous 1, 7 and 30 days, counted strictly before each event.</li>
+    <li><b>Features.</b> The original seven features are retained; classification also tests four short-window features, all computed strictly before each event.</li>
     <li><b>Labels.</b> Erupting if inside an episode's duration plus a 24-hour buffer; time to eruption in days to the next onset.</li>
     <li><b>Split by time.</b> Train {sp['train']['rows']:,} · development {sp['dev']['rows']:,} · test {sp['test']['rows']:,} earthquakes, with 30-day gaps and no labels that leak across a boundary.</li>
-    <li><b>Select, then test once.</b> Baselines, logistic regression, random forests, K-means and an MLP are tuned on development data; the winner is fixed before the test period is scored.</li>
+    <li><b>Select, then test once.</b> Baselines, logistic regression, tree ensembles, K-means and an MLP are tuned on development data; both the AUROC baseline and joint-F1 procedure are frozen before the test period is scored.</li>
   </ol>
 </section>
 
@@ -223,11 +288,34 @@ test metrics are computed once, for every family's dev-best model'''
   <h2 id="h-cls">Is the volcano erupting?</h2>
   <div class="two">
     {figure('classification_roc.png', 'ROC curves for five classifiers on the chronological test period, all close to the diagonal chance line.', 'ROC curves on the test period. All models stay close to the chance diagonal; the random forest falls below it.', embed)}
-    {figure('classification_confusion_matrix.png', f'Confusion matrix: {cm[0][0]} repose correct, {cm[0][1]} repose flagged as erupting, {cm[1][0]} eruptive missed, {cm[1][1]} eruptive found.', 'Confusion matrix of the selected model at a 0.5 score threshold.', embed)}
+    {figure('classification_confusion_matrix.png', f'Confusion matrix: {cm[0][0]} repose correct, {cm[0][1]} repose flagged as erupting, {cm[1][0]} eruptive missed, {cm[1][1]} eruptive found.', f'Confusion matrix of the selected model at the development-selected threshold ({ct["threshold"]:.3f}); the 0.5 baseline is retained in the saved metrics.', embed)}
   </div>
   <div class="tbl"><table>
     <thead><tr><th>Model</th><th>Setting</th><th>Dev AUROC</th><th>Test AUROC</th><th>Avg. precision</th><th>Kappa</th><th>Recall</th><th>Precision</th></tr></thead>
     <tbody>{cls_rows}</tbody></table></div>
+    <h3>Recall-first operating constraints</h3>
+    <p class="note">These strategies were selected using development data only. Their test FPR is reported after freezing the model and threshold and can differ from the development cap.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Strategy</th><th>Model</th><th>Threshold</th><th>Dev recall</th><th>Dev FPR</th><th>Test recall</th><th>Test FPR</th></tr></thead>
+      <tbody>{recall_rows}</tbody>
+    </table></div>
+    <h3>Selection-strategy comparison</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Strategy</th><th>Model</th><th>Test AUROC</th><th>Test AP</th><th>Test recall</th><th>Test precision</th><th>Test F1</th></tr></thead>
+      <tbody>{strategy_rows}</tbody>
+    </table></div>
+      <h3>Controlled K-means experiment</h3>
+      <p class="note">All rows use the same class-conditional K-means implementation, k=4, and original seven features. TP/FP/TN/FN are shown as development/test counts; only development metrics selected thresholds.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Operating point</th><th>Threshold</th><th>Dev TP/FP/TN/FN</th><th>Dev AUROC</th><th>Dev AP</th><th>Dev recall</th><th>Dev FPR</th><th>Test TP/FP/TN/FN</th><th>Test AUROC</th><th>Test AP</th><th>Test recall</th><th>Test F1</th></tr></thead>
+        <tbody>{kmeans_rows}</tbody>
+      </table></div>
+      <h3>Controlled K-means model-improvement grid</h3>
+      <p class="note">The development-AUROC winner was <b>{html.escape(km_winner["config"])}</b> using original seven features. Every candidate was fitted on training data only; standardized candidates use a train-fitted scaler. The normalized-margin score is mathematically equivalent to the existing relative-distance score, so it is included as a direction check rather than an independent source of ranking information.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Operating point</th><th>Threshold</th><th>Dev AUROC/AP</th><th>Dev precision/recall/F1/FPR</th><th>Test AUROC/AP</th><th>Test TP/FP/TN/FN</th><th>Test precision/recall/F1/FPR</th></tr></thead>
+        <tbody>{km_improvement_rows}</tbody>
+      </table></div>
 </section>
 
 <section id="regression" aria-labelledby="h-reg">
