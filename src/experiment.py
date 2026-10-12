@@ -25,6 +25,179 @@ from .data import ALL_FEATURES, FEATURES, ROOT, prepare
 from .models import ClassConditionalKMeans, JointKMeansRegressor
 
 
+def _section(title):
+    print(f'\n{title}')
+    print('-' * len(title))
+
+
+def _print_table(headers, rows, right_align=None):
+    right_align = set(right_align or ())
+    rows = [[str(value) for value in row] for row in rows]
+    widths = [
+        max(len(headers[index]), *(len(row[index]) for row in rows))
+        for index in range(len(headers))
+    ]
+    print('  '.join(
+        header.rjust(widths[index]) if index in right_align else header.ljust(widths[index])
+        for index, header in enumerate(headers)
+    ))
+    print('  '.join('-' * width for width in widths))
+    for row in rows:
+        print('  '.join(
+            value.rjust(widths[index]) if index in right_align else value.ljust(widths[index])
+            for index, value in enumerate(row)
+        ))
+
+
+def _metric(value, digits=3):
+    return '—' if value is None or not np.isfinite(value) else f'{value:.{digits}f}'
+
+
+def _classification_rows(summary):
+    rows = []
+    selected = summary['selection']['classification']
+    for family, record in summary['metrics']['classification'].items():
+        test = record['test']
+        marker = 'selected (dev F1)' if (
+            record['family'] if 'family' in record else family
+        ) == selected['family'] and record['config'] == selected['config'] else ''
+        rows.append([
+            family,
+            record['feature_set'],
+            _metric(test['auroc']),
+            _metric(test['average_precision']),
+            _metric(test['precision']),
+            _metric(test['recall']),
+            _metric(test['f1']),
+            _metric(record['threshold']),
+            marker,
+        ])
+
+    def add_operating_point(label, record, criterion):
+        test = record['test_metrics']
+        rows.append([
+            label,
+            record.get('feature_set', 'original_7'),
+            _metric(test['auroc']),
+            _metric(test['average_precision']),
+            _metric(test['precision']),
+            _metric(test['recall']),
+            _metric(test['f1']),
+            _metric(record['threshold']),
+            criterion,
+        ])
+
+    for strategy, record in summary.get('selection_recall_first', {}).items():
+        if 'test_metrics' in record:
+            add_operating_point(strategy, record, 'recall-first')
+    for strategy, record in summary.get('selection_kmeans_controlled', {}).items():
+        add_operating_point(f'kmeans historical / {strategy}', record, 'historical k=4')
+    for strategy, record in summary.get('selection_kmeans_improvement', {}).get(
+        'operating_points', {}
+    ).items():
+        add_operating_point(f'kmeans improved / {strategy}', record, 'improved search')
+    return rows
+
+
+def _print_protocol_report(summary):
+    protocol = summary['protocol']
+    audit = summary['audit']
+    selected = summary['selection']['classification']
+    selected_test = selected['test_metrics']
+    _section(f'{protocol.title()} evaluation')
+    _print_table(
+        ['Model', 'Features', 'AUROC', 'Avg precision', 'Precision', 'Recall',
+         'F1', 'Threshold', 'Selection'],
+        _classification_rows(summary),
+        right_align={2, 3, 4, 5, 6, 7},
+    )
+    print(
+        f'Selected by development F1: {selected["family"]} '
+        f'({selected["config"]}, {selected["feature_set"]}).'
+    )
+
+    if protocol == 'chronological':
+        _section('Classification trade-offs: selected chronological classifier')
+        fixed = selected_test['threshold_0_5']
+        _print_table(
+            ['AUROC', 'Avg precision', 'Precision', 'Recall', 'F1',
+             'TP', 'FP', 'TN', 'FN', 'FPR', 'Threshold'],
+            [[
+                _metric(selected_test['auroc']),
+                _metric(selected_test['average_precision']),
+                _metric(selected_test['precision']),
+                _metric(selected_test['recall']),
+                _metric(selected_test['f1']),
+                selected_test['true_positives'],
+                selected_test['false_positives'],
+                selected_test['true_negatives'],
+                selected_test['false_negatives'],
+                _metric(selected_test['false_positive_rate']),
+                _metric(selected_test['threshold']),
+            ], [
+                _metric(selected_test['auroc']),
+                _metric(selected_test['average_precision']),
+                _metric(fixed['precision']),
+                _metric(fixed['recall']),
+                _metric(fixed['f1']),
+                fixed['true_positives'],
+                fixed['false_positives'],
+                fixed['true_negatives'],
+                fixed['false_negatives'],
+                _metric(fixed['false_positive_rate']),
+                _metric(fixed['threshold']),
+            ]],
+            right_align=set(range(11)),
+        )
+        print('Selected development threshold above; fixed-0.5 comparison below.')
+        print('Changing the threshold changes class predictions and the precision/recall trade-off;')
+        print('it does not change the underlying score ranking or AUROC.')
+
+    _section('Regression results')
+    regression_rows = []
+    for family, record in summary['metrics']['regression'].items():
+        test = record['test']
+        selected_marker = 'selected (dev RMSE)' if family == summary['selection']['regression']['family'] else ''
+        regression_rows.append([
+            family, _metric(test['rmse_days'], 2), _metric(test['mae_days'], 2),
+            _metric(test['r2']), selected_marker,
+        ])
+    _print_table(
+        ['Model', 'Test RMSE (days)', 'Test MAE (days)', 'Test R²', 'Selection'],
+        regression_rows, right_align={1, 2, 3},
+    )
+
+
+def _print_experiment_report(summaries):
+    print('\nVolcano Eruption Prediction')
+    print('===========================')
+    protocols = ', '.join(summary['protocol'] for summary in summaries)
+    print(f'Evaluation protocol: {protocols}')
+    print('Experiment run: development-selected models evaluated on held-out test periods.')
+    for summary in summaries:
+        _print_protocol_report(summary)
+
+    chronological = next((s for s in summaries if s['protocol'] == 'chronological'), None)
+    if chronological:
+        _section('Final interpretation')
+        classification = chronological['selection']['classification']['test_metrics']
+        regression = chronological['metrics']['regression'][
+            chronological['selection']['regression']['family']
+        ]['test']
+        positives = chronological['audit']['splits']['test']['positive_rows']
+        print(
+            f'Chronological classification is weak and near chance-level '
+            f'(AUROC {_metric(classification["auroc"])}); the chronological test set '
+            f'contains only {positives} eruptive examples.'
+        )
+        print(
+            f'The selected regression baseline has RMSE {_metric(regression["rmse_days"], 2)} '
+            f'days and R² {_metric(regression["r2"])}.'
+        )
+        if any(s['protocol'] == 'random' for s in summaries):
+            print('Random-split results are a secondary comparison, not the main estimate of future-period performance.')
+
+
 def split_data(data, protocol, seed=42, gap_days=30):
     indices = np.arange(len(data))
     if protocol == 'random':
@@ -548,9 +721,6 @@ def run(protocol='chronological', seed=42, buffer_hours=24, output_dir=None):
                 ROOT / 'models' / f'classification_kmeans_improved_{strategy}.joblib',
                 compress=3,
             )
-    print(f'{protocol} classification: joint-dev-F1 selected {selected_record["family"]}; '
-          f'test {selected_test_metrics}', flush=True)
-
     # Regression path is unchanged: select by development RMSE only.
     y = data['tte_days']
     best = {}
@@ -593,8 +763,6 @@ def run(protocol='chronological', seed=42, buffer_hours=24, output_dir=None):
                          'family': family, 'config': config, 'threshold': None,
                          'seed': seed, 'buffer_hours': buffer_hours},
                         model_dir / f'regression_{family}.joblib', compress=3)
-    print(f'{protocol} regression: dev-selected {winner}; '
-          f'test {summary["metrics"]["regression"][winner]["test"]}', flush=True)
     predictions.to_csv(out/'test_predictions.csv', index=False)
     pd.DataFrame(tuning).to_csv(out/'tuning.csv', index=False)
     (out/'metrics.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
@@ -612,8 +780,11 @@ def main():
     if args.protocol == 'both' and args.output_dir:
         parser.error('Use a single protocol with --output-dir')
     with threadpool_limits(limits=1):
-        for protocol in (['chronological','random'] if args.protocol == 'both' else [args.protocol]):
+        summaries = [
             run(protocol, buffer_hours=args.buffer_hours, output_dir=args.output_dir)
+            for protocol in (['chronological', 'random'] if args.protocol == 'both' else [args.protocol])
+        ]
+    _print_experiment_report(summaries)
 
 
 if __name__ == '__main__':

@@ -43,7 +43,7 @@
     "excluded_split_rows": 0
   },
   "versions": {
-    "python": "3.14.3",
+    "python": "3.14.8",
     "sklearn": "1.7.2",
     "numpy": "2.5.3",
     "pandas": "3.0.6"
@@ -823,11 +823,11 @@
       "logistic": {
         "config": "C=10",
         "feature_set": "expanded_11",
-        "threshold": 0.5507270749996357,
+        "threshold": 0.5507270749996358,
         "development": {
           "auroc": 0.5575622858201352,
           "average_precision": 0.12811730241864608,
-          "threshold": 0.5507270749996357,
+          "threshold": 0.5507270749996358,
           "kappa": 0.08960785473472532,
           "accuracy": 0.7364864864864865,
           "balanced_accuracy": 0.5701583773270353,
@@ -878,7 +878,7 @@
         "test": {
           "auroc": 0.5508771929824561,
           "average_precision": 0.11529397044904582,
-          "threshold": 0.5507270749996357,
+          "threshold": 0.5507270749996358,
           "kappa": 0.023611111111111138,
           "accuracy": 0.7432432432432432,
           "balanced_accuracy": 0.5170426065162907,
@@ -929,11 +929,11 @@
       "mlp": {
         "config": "alpha=0.001",
         "feature_set": "expanded_11",
-        "threshold": 0.40231347222162217,
+        "threshold": 0.4023134722216222,
         "development": {
           "auroc": 0.5863974560834799,
           "average_precision": 0.15456577449968067,
-          "threshold": 0.40231347222162217,
+          "threshold": 0.4023134722216222,
           "kappa": 0.0965713867972805,
           "accuracy": 0.7179054054054054,
           "balanced_accuracy": 0.5815658670618382,
@@ -984,7 +984,7 @@
         "test": {
           "auroc": 0.4463659147869674,
           "average_precision": 0.11954688827975124,
-          "threshold": 0.40231347222162217,
+          "threshold": 0.4023134722216222,
           "kappa": -0.06690426048922737,
           "accuracy": 0.6993243243243243,
           "balanced_accuracy": 0.4482456140350877,
@@ -2067,11 +2067,11 @@
         },
         "test": {
           "rmse_days": 11.830687861554003,
-          "mae_days": 9.195787540350382,
+          "mae_days": 9.19578754035038,
           "r2": 0.030010870897295483,
           "repose_only": {
             "rmse_days": 11.6748667744565,
-            "mae_days": 8.757491306871332,
+            "mae_days": 8.75749130687133,
             "r2": 0.015568025769422289
           }
         }
